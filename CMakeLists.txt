@@ -14,7 +14,9 @@ endif()
 # Project
 project(protobuf C CXX)
 
-add_compile_options(-march=armv8.3-a+crc+sve)
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
+  set(CMAKE_CXX_FLAGS "-march=armv8.2-a+sve ${CMAKE_CXX_FLAGS}")
+endif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
 
 if(protobuf_DEPRECATED_CMAKE_SUBDIRECTORY_USAGE)
   if(CMAKE_PROJECT_NAME STREQUAL "protobuf")

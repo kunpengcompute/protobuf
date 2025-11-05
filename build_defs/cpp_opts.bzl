@@ -22,7 +22,7 @@ COPTS = select({
         "-Wno-sign-compare",
         "-Wno-nonnull",
         "-Werror",
-        "-march=armv8.3-a+crc+sve",
+        "-march=armv8.2-a+sve",
     ],
 })
 
