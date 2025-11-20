@@ -4,168 +4,105 @@
 #include <vector>
 #include <cstring>
 #include <iostream>
-#include "arr_data32.pb.h"
-#include "arr_data64.pb.h"
-#include "test.pb.h"
+#include "pae_data.pb.h"
 
-uint64_t genInt(uint8_t byteNum)
+uint64_t genInt()
 {
     std::string data;
     std::random_device rd;
     std::mt19937 engine(rd());
-    uint64_t start = 1;
-    if (byteNum >= 10) {
-        // Max value of uint64
-        std::uniform_int_distribution<uint64_t> dist(start << 63, start << 64 - 1);
-        return dist(engine);
-    } else {
-        std::uniform_int_distribution<uint64_t> dist(start << ((byteNum - 1) * 7), start << (byteNum * 7) - 1);
-        return dist(engine);
-    }
+    std::uniform_int_distribution<uint64_t> dist(1, std::numeric_limits<uint32_t>::max());
+    //std::uniform_int_distribution<uint64_t> dist(1, 16777215);
+    //std::uniform_int_distribution<uint64_t> dist(1, 255);
+    return dist(engine);
+    //return 655356;
 }
 
-pb::test::ArrData32 genData32(size_t arrSize, uint8_t byteNum)
+idl::lagrange::common::InferenceMeta genData(size_t arrSize)
 {
-    if (byteNum > 5) {
-        std::cout << "Uint32 overflow detected." << std::endl;
-    }
-    pb::test::ArrData32 data;
+    idl::lagrange::common::InferenceMeta interface;
+    //对最外层赋值
+    interface.set_batch_size(genInt());
+    idl::lagrange::common::GPUTransLayerMeta* firstInner = interface.add_emb_meta();
+    //对中间层赋值
+    firstInner->set_name("ABC");
+    firstInner->set_emb_name("ABCD");
+    firstInner->set_data_size(10000);
+    firstInner->set_shared(true);
+    firstInner->set_empty(false);
+    firstInner->set_tiling_in_graph(true);
+    idl::lagrange::common::GPUTransBiasMeta* secondInner1 = firstInner->mutable_bias();
+    idl::lagrange::common::GPUTransVecMeta* secondInner2 = firstInner->mutable_vec();
+    idl::lagrange::common::GPUTrans3DMeta* secondInner3 = firstInner->mutable_seq();
+    //对最内层赋值
+    secondInner1->add_fc_name("ABCE");
+    secondInner2->add_fc_name("ABCF");
+    secondInner3->add_fc_name("ABCG");
     for (size_t i = 1; i <= arrSize; ++i) {
-        uint64_t n = genInt(byteNum);
-        // Max value of uint32 when overflow occurs
-        data.add_numbers(n > std::numeric_limits<uint32_t>::max() ? std::numeric_limits<uint32_t>::max() : n);
+        uint64_t n = genInt();
+        //secondInner1->add_output_id(n);
+        //n = genInt();
+        //secondInner2->add_meta_dim(n);
+        //n = genInt();
+        //secondInner2->add_meta_size(n);
+        //n = genInt();
+        //secondInner2->add_input_offset(n);
+        //n = genInt();
+        //secondInner2->add_output_offset(n);
+        //n = genInt();
+        secondInner3->add_input_offset(n);
+        n = genInt();
+        secondInner3->add_output_id(n);
+        n = genInt();
+        secondInner3->add_feature_size(n);
     }
-    return data;
-}
-
-pb::test::ArrData64 genData64(size_t arrSize, uint8_t byteNum)
-{
-    pb::test::ArrData64 data;
-    for (size_t i = 1; i <= arrSize; ++i) {
-        uint64_t n = genInt(byteNum);
-        // Max value of uint64 when overflow occurs
-        data.add_numbers(n > std::numeric_limits<uint64_t>::max() ? std::numeric_limits<uint64_t>::max() : n);
-    }
-    return data;
+    return interface;
 }
 
 std::string res;
 
-/*
- * type: 32/64
- * size: the number of repeated elements
- * len：the byte length of each encoded element
- */
-#define DEFINE_BENCHMARK(type, size, len)                                                \
-    pb::test::ArrData##type arrayData##type##_##size##_##len = genData##type(size, len); \
-    static void BM_arr_##type##_##size##_##len(benchmark::State &state)                  \
-    {                                                                                    \
-        for (auto _ : state) {                                                           \
-            res = arrayData##type##_##size##_##len.SerializeAsString();                  \
-        }                                                                                \
-    }                                                                                    \
-    BENCHMARK(BM_arr_##type##_##size##_##len);
+#define DEFINE_BENCHMARK(size)                                      \
+    idl::lagrange::common::InferenceMeta Data##size = genData(size);\
+    static void BM_ser_##size(benchmark::State &state)              \
+    {                                                               \
+        for (auto _ : state) {                                      \
+            res = Data##size.SerializeAsString();                   \
+        }                                                           \
+    }                                                               \
+    BENCHMARK(BM_ser_##size);
 
-#define DEFINE_DESERIALIZE_BENCHMARK(type, size, len)                                                \
-    pb::test::ArrData##type arrayDataDe##type##_##size##_##len = genData##type(size, len);           \
-    pb::test::ArrData##type arrayDataDe2##type##_##size##_##len;                                     \
-    std::string res##type##_##size##_##len = arrayDataDe##type##_##size##_##len.SerializeAsString(); \
-    static void BM_Deserialize_arr_##type##_##size##_##len(benchmark::State &state)                  \
-    {                                                                                                \
-        for (auto _ : state) {                                                                       \
-            arrayDataDe2##type##_##size##_##len.ParseFromString(res##type##_##size##_##len);         \
-        }                                                                                            \
-    }                                                                                                \
-    BENCHMARK(BM_Deserialize_arr_##type##_##size##_##len);
+#define DEFINE_DESERIALIZE_BENCHMARK(size)                            \
+    idl::lagrange::common::InferenceMeta DataDe##size = genData(size);\
+    idl::lagrange::common::InferenceMeta DataDe2##size;               \
+    std::string res##size = DataDe##size.SerializeAsString();         \
+    static void BM_Deser_##size(benchmark::State &state)              \
+    {                                                                 \
+        for (auto _ : state) {                                        \
+            DataDe2##size.ParseFromString(res##size);                 \
+        }                                                             \
+    }                                                                 \
+    BENCHMARK(BM_Deser_##size);
 
-// uint32 benchmarks
-DEFINE_BENCHMARK(32, 20, 2)
-DEFINE_BENCHMARK(32, 40, 2)
-DEFINE_BENCHMARK(32, 100, 2)
-DEFINE_BENCHMARK(32, 500, 2)
-DEFINE_BENCHMARK(32, 1000, 2)
-DEFINE_BENCHMARK(32, 5000, 2)
-DEFINE_BENCHMARK(32, 10000, 2)
 
-DEFINE_BENCHMARK(32, 20, 3)
-DEFINE_BENCHMARK(32, 40, 3)
-DEFINE_BENCHMARK(32, 100, 3)
-DEFINE_BENCHMARK(32, 500, 3)
-DEFINE_BENCHMARK(32, 1000, 3)
-DEFINE_BENCHMARK(32, 5000, 3)
-DEFINE_BENCHMARK(32, 10000, 3)
+DEFINE_BENCHMARK(10)
+DEFINE_BENCHMARK(15)
+DEFINE_BENCHMARK(20)
+DEFINE_BENCHMARK(25)
+DEFINE_BENCHMARK(40)
+DEFINE_BENCHMARK(100)
+DEFINE_BENCHMARK(500)
+DEFINE_BENCHMARK(1000)
+DEFINE_BENCHMARK(2000)
+DEFINE_BENCHMARK(4000)
 
-DEFINE_BENCHMARK(32, 20, 4)
-DEFINE_BENCHMARK(32, 40, 4)
-DEFINE_BENCHMARK(32, 100, 4)
-DEFINE_BENCHMARK(32, 500, 4)
-DEFINE_BENCHMARK(32, 1000, 4)
-DEFINE_BENCHMARK(32, 5000, 4)
-DEFINE_BENCHMARK(32, 10000, 4)
-
-// uint64 benchmarks
-DEFINE_BENCHMARK(64, 20, 2)
-DEFINE_BENCHMARK(64, 40, 2)
-DEFINE_BENCHMARK(64, 100, 2)
-DEFINE_BENCHMARK(64, 500, 2)
-DEFINE_BENCHMARK(64, 1000, 2)
-DEFINE_BENCHMARK(64, 5000, 2)
-DEFINE_BENCHMARK(64, 10000, 2)
-
-DEFINE_BENCHMARK(64, 20, 3)
-DEFINE_BENCHMARK(64, 40, 3)
-DEFINE_BENCHMARK(64, 100, 3)
-DEFINE_BENCHMARK(64, 500, 3)
-DEFINE_BENCHMARK(64, 1000, 3)
-DEFINE_BENCHMARK(64, 5000, 3)
-DEFINE_BENCHMARK(64, 10000, 3)
-
-DEFINE_BENCHMARK(64, 20, 4)
-DEFINE_BENCHMARK(64, 40, 4)
-DEFINE_BENCHMARK(64, 100, 4)
-DEFINE_BENCHMARK(64, 500, 4)
-DEFINE_BENCHMARK(64, 1000, 4)
-DEFINE_BENCHMARK(64, 5000, 4)
-DEFINE_BENCHMARK(64, 10000, 4)
-
-DEFINE_BENCHMARK(64, 20, 5)
-DEFINE_BENCHMARK(64, 40, 5)
-DEFINE_BENCHMARK(64, 100, 5)
-DEFINE_BENCHMARK(64, 500, 5)
-DEFINE_BENCHMARK(64, 1000, 5)
-DEFINE_BENCHMARK(64, 5000, 5)
-DEFINE_BENCHMARK(64, 10000, 5)
-
-DEFINE_BENCHMARK(64, 20, 8)
-DEFINE_BENCHMARK(64, 40, 8)
-DEFINE_BENCHMARK(64, 100, 8)
-DEFINE_BENCHMARK(64, 500, 8)
-DEFINE_BENCHMARK(64, 1000, 8)
-DEFINE_BENCHMARK(64, 5000, 8)
-DEFINE_BENCHMARK(64, 10000, 8)
-
-DEFINE_BENCHMARK(64, 20, 9)
-DEFINE_BENCHMARK(64, 40, 9)
-DEFINE_BENCHMARK(64, 100, 9)
-DEFINE_BENCHMARK(64, 500, 9)
-DEFINE_BENCHMARK(64, 1000, 9)
-DEFINE_BENCHMARK(64, 5000, 9)
-DEFINE_BENCHMARK(64, 10000, 9)
-
-DEFINE_DESERIALIZE_BENCHMARK(32, 20, 1)
-DEFINE_DESERIALIZE_BENCHMARK(32, 40, 1)
-DEFINE_DESERIALIZE_BENCHMARK(32, 100, 1)
-DEFINE_DESERIALIZE_BENCHMARK(32, 500, 1)
-DEFINE_DESERIALIZE_BENCHMARK(32, 1000, 1)
-DEFINE_DESERIALIZE_BENCHMARK(32, 5000, 1)
-DEFINE_DESERIALIZE_BENCHMARK(32, 10000, 1)
-
-DEFINE_DESERIALIZE_BENCHMARK(64, 20, 1)
-DEFINE_DESERIALIZE_BENCHMARK(64, 40, 1)
-DEFINE_DESERIALIZE_BENCHMARK(64, 100, 1)
-DEFINE_DESERIALIZE_BENCHMARK(64, 500, 1)
-DEFINE_DESERIALIZE_BENCHMARK(64, 1000, 1)
-DEFINE_DESERIALIZE_BENCHMARK(64, 5000, 1)
-DEFINE_DESERIALIZE_BENCHMARK(64, 10000, 1)
-
+DEFINE_DESERIALIZE_BENCHMARK(10)
+DEFINE_DESERIALIZE_BENCHMARK(15)
+DEFINE_DESERIALIZE_BENCHMARK(20)
+DEFINE_DESERIALIZE_BENCHMARK(25)
+DEFINE_DESERIALIZE_BENCHMARK(40)
+DEFINE_DESERIALIZE_BENCHMARK(100)
+DEFINE_DESERIALIZE_BENCHMARK(500)
+DEFINE_DESERIALIZE_BENCHMARK(1000)
+DEFINE_DESERIALIZE_BENCHMARK(2000)
+DEFINE_DESERIALIZE_BENCHMARK(4000)
 BENCHMARK_MAIN();
