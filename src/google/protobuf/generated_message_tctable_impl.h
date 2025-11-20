@@ -796,9 +796,7 @@ class PROTOBUF_EXPORT TcParser final {
   static inline const char* RepeatedVarint(PROTOBUF_TC_PARAM_DECL);
   template <typename FieldType, typename TagType, bool zigzag = false>
   static inline const char* PackedVarint(PROTOBUF_TC_PARAM_DECL);
-  template <typename FieldType, typename TagType>
-  static inline const char* PackedVarintRaw(PROTOBUF_TC_PARAM_DECL);
- 
+
   // Helper for ints > 127:
   template <typename FieldType, typename TagType, bool zigzag = false>
   PROTOBUF_NOINLINE static const char* SingularVarBigint(

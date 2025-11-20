@@ -233,12 +233,6 @@ class RepeatedField final
   // O(new_size - size()).
   void Resize(size_type new_size, const Element& value);
 
-  // Like STL resize. Leaves appeneded elements uninitialized.
-  // Like Truncate() if new_size <= size(), otherwise this is
-  // O(new_size - size()).
-  void ResizeUninitialized(size_type new_size);
-
-
   // Gets the underlying array.  This pointer is possibly invalidated by
   // any add or remove operation.
   pointer mutable_data() ABSL_ATTRIBUTE_LIFETIME_BOUND;
@@ -610,18 +604,6 @@ inline void RepeatedField<Element>::Resize(int new_size, const Element& value) {
     if (new_size > total_size_) Grow(current_size_, new_size);
     Element* first = elements() + ExchangeCurrentSize(new_size);
     std::uninitialized_fill(first, elements() + current_size_, value);
-  } else if (new_size < current_size_) {
-    Destroy(unsafe_elements() + new_size, unsafe_elements() + current_size_);
-    ExchangeCurrentSize(new_size);
-  }
-}
-
-template <typename Element>
-inline void RepeatedField<Element>::ResizeUninitialized(int new_size) {
-  ABSL_DCHECK_GE(new_size, 0);
-  if (new_size > current_size_) {
-    if (new_size > total_size_) Grow(current_size_, new_size);
-    Element* first = elements() + ExchangeCurrentSize(new_size);
   } else if (new_size < current_size_) {
     Destroy(unsafe_elements() + new_size, unsafe_elements() + current_size_);
     ExchangeCurrentSize(new_size);
