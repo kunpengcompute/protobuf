@@ -43,31 +43,30 @@ else()
     message(STATUS "arr_data64.pb.h already exists.")
 endif()
 
-if(NOT EXISTS "${CMAKE_SOURCE_DIR}/test.pb.h")
-    message(STATUS "test.pb.h not found. Generating using protoc.")
-    # 执行protoc命令生成test.pb.h
+if(NOT EXISTS "${CMAKE_SOURCE_DIR}/pae_data.pb.h")
+    message(STATUS "pae_data.pb.h not found. Generating using protoc.")
     execute_process(
-        COMMAND $ENV{PBLIB_HOME}/bin/protoc --cpp_out=. ./test.proto
+        COMMAND $ENV{PBLIB_HOME}/bin/protoc --cpp_out=. ./pae_data.proto
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
         RESULT_VARIABLE result
         OUTPUT_VARIABLE output
         ERROR_VARIABLE error
     )
-        if(NOT result EQUAL 0)
+	if(NOT result EQUAL 0)
         message(FATAL_ERROR "protoc command failed with error: ${error}")
     else()
         message(STATUS "protoc command output: ${output}")
     endif()
 else()
-    message(STATUS "test.pb.h already exists.")
+    message(STATUS "pae_data.pb.h already exists.")
 endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
-set(CMAKE_CXX_FLAGS "-L$ENV{PBLIB_HOME}/lib64")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O3 -Wall -march=native")
+set(CMAKE_CXX_FLAGS "-L$ENV{PBLIB_HOME}/lib")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O3 -Wall -march=armv8.2-a+sha3")
 
 include_directories("$ENV{PBLIB_HOME}/include")
 
-add_executable(bm benchmark.cpp arr_data32.pb.cc arr_data64.pb.cc test.pb.cc)
+add_executable(bm benchmark.cpp arr_data32.pb.cc arr_data64.pb.cc pae_data.pb.cc)
 target_link_libraries(bm benchmark pthread protobuf absl_log_internal_check_op absl_log_internal_message)
