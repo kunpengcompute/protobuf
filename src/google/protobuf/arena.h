@@ -274,7 +274,7 @@ class PROTOBUF_EXPORT PROTOBUF_ALIGNAS(8) Arena final {
       // Such a scheme would only waste (align - 8)/2 bytes on average, but
       // requires a dedicated function in the outline arena allocation
       // functions. Possibly re-evaluate tradeoffs later.
-      auto align_as = internal::ArenaAlignAs(align);
+      auto align_as = internal::ArenaAlignAs(std::min(align,static_cast<decltype(align)>(16)));
       return align_as.Ceil(Allocate(align_as.Padded(size)));
     }
   }
@@ -632,7 +632,7 @@ class PROTOBUF_EXPORT PROTOBUF_ALIGNAS(8) Arena final {
       // Such a scheme would only waste (align - 8)/2 bytes on average, but
       // requires a dedicated function in the outline arena allocation
       // functions. Possibly re-evaluate tradeoffs later.
-      auto align_as = internal::ArenaAlignAs(align);
+      auto align_as = internal::ArenaAlignAs(std::min(align,static_cast<decltype(align)>(16)));
       return align_as.Ceil(AllocateForArray(align_as.Padded(n)));
     }
   }
