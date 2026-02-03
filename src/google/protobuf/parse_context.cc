@@ -408,7 +408,7 @@ void PrintUTF8ErrorLog(absl::string_view message_name,
                        bool emit_stacktrace);
 
 bool VerifyUTF8(absl::string_view str, const char* field_name) {
-  if (!utf8_range::IsStructurallyValid(str)) {
+  if (!utf8_range3::IsStructurallyValid(str)) {
     PrintUTF8ErrorLog("", field_name, "parsing", false);
     return false;
   }

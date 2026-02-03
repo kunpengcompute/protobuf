@@ -9,7 +9,7 @@
 
 #include "absl/strings/string_view.h"
 
-namespace utf8_range {
+namespace utf8_range3 {
 
 // Returns true if the sequence of characters is a valid UTF-8 sequence.
 bool IsStructurallyValid(absl::string_view str);

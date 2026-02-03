@@ -29,7 +29,14 @@
 #include <tmmintrin.h>
 #endif
 
-namespace utf8_range {
+#ifdef __aarch64__
+extern "C" {
+    int utf8_range(const unsigned char *data, int len);
+    int utf8_simdutf(const char *data, int len);
+}
+#endif
+
+namespace utf8_range3 {
 namespace {
 
 inline uint64_t UNALIGNED_LOAD64(const void* p) {
@@ -178,8 +185,23 @@ size_t ValidUTF8(const char* data, size_t len) {
            ValidUTF8Span<ReturnPosition>(data, end);
   }
 #ifndef __SSE4_1__
+#ifdef __aarch64__
+  if (ReturnPosition) {
+    return (ReturnPosition ? (data - (end - len)) : 0) +
+      ValidUTF8Span<ReturnPosition>(data, end);
+  } else {
+    size_t res;
+    if ((end - data) > 256) { // After benchmark simdutf perform better than range algorithm while data exceeds 256 Bytes
+      res = utf8_simdutf(data, end - data);
+    } else  {
+      res = utf8_range(reinterpret_cast<const unsigned char*>(data), end - data) == 0 ? 1 : 0;
+    }
+    return res;
+  }
+#else 
   return (ReturnPosition ? (data - (end - len)) : 0) +
          ValidUTF8Span<ReturnPosition>(data, end);
+#endif
 #else
   /* This code checks that utf-8 ranges are structurally valid 16 bytes at once
    * using superscalar instructions.

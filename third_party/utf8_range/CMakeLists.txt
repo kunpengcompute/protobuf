@@ -9,17 +9,26 @@ endif (POLICY CMP0077)
 option (utf8_range_ENABLE_TESTS "Build test suite" ON)
 option (utf8_range_ENABLE_INSTALL "Configure installation" ON)
 
+set_source_files_properties(simdutf-wrapper.c PROPERTIES LANGUAGE CXX)
+
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
+
 ##
 # Create the lightweight C library
-add_library (utf8_range STATIC
-  naive.c
-  range2-neon.c
-  range2-sse.c
-)
+if(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+  add_library (utf8_range STATIC range-neon.c naive.c range2-neon.c range2-sse.c simdutf-wrapper.c simdutf.cpp)
+else()
+  add_library (utf8_range STATIC naive.c range2-neon.c range2-sse.c)
+endif()
 
 ##
 # A heavier-weight C++ wrapper that supports Abseil.
-add_library (utf8_validity STATIC utf8_validity.cc)
+if(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+  add_library (utf8_validity STATIC utf8_validity.cc range-neon.c naive.c simdutf-wrapper.c simdutf.cpp)
+else()
+  add_library (utf8_validity STATIC utf8_validity.cc)
+endif()
 
 # Load Abseil dependency.
 if (NOT TARGET absl::strings)
@@ -57,7 +66,7 @@ if (utf8_range_ENABLE_INSTALL)
 
   install(EXPORT ${PROJECT_NAME}-targets
     DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}"
-    NAMESPACE utf8_range::
+    NAMESPACE utf8_range3::
   )
   install(TARGETS utf8_validity utf8_range EXPORT ${PROJECT_NAME}-targets
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
