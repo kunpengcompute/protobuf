@@ -1,7 +1,7 @@
 # Minimum CMake required. If available, accept the policy-controlled behavior up
 # to 3.26.
 cmake_minimum_required(VERSION 3.10...3.26)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=armv8.3-a+crc+sve")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=armv8.5-a+crc+sve+sve2+sve2-bitperm")
 
 # Revert to old behavior for MSVC debug symbols.
 if(POLICY CMP0141)
