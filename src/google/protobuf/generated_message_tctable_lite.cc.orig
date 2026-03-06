@@ -1416,7 +1416,7 @@ const char* ReadStringNoArena(MessageLite* /*msg*/, const char* ptr,
 }
 
 PROTOBUF_ALWAYS_INLINE inline bool IsValidUTF8(ArenaStringPtr& field) {
-  return utf8_range3::IsStructurallyValid(field.Get());
+  return utf8_range::IsStructurallyValid(field.Get());
 }
 
 
@@ -1548,7 +1548,7 @@ PROTOBUF_ALWAYS_INLINE const char* TcParser::RepeatedString(
         return true;
       default:
         if (PROTOBUF_PREDICT_TRUE(
-                utf8_range3::IsStructurallyValid(field[field.size() - 1]))) {
+                utf8_range::IsStructurallyValid(field[field.size() - 1]))) {
           return true;
         }
         ReportFastUtf8Error(FastDecodeTag(expected_tag), table);
@@ -2132,7 +2132,7 @@ bool TcParser::MpVerifyUtf8(absl::string_view wire_bytes,
                             const TcParseTableBase* table,
                             const FieldEntry& entry, uint16_t xform_val) {
   if (xform_val == field_layout::kTvUtf8) {
-    if (!utf8_range3::IsStructurallyValid(wire_bytes)) {
+    if (!utf8_range::IsStructurallyValid(wire_bytes)) {
       PrintUTF8ErrorLog(MessageName(table), FieldName(table, &entry), "parsing",
                         false);
       return false;
@@ -2141,7 +2141,7 @@ bool TcParser::MpVerifyUtf8(absl::string_view wire_bytes,
   }
 #ifndef NDEBUG
   if (xform_val == field_layout::kTvUtf8Debug) {
-    if (!utf8_range3::IsStructurallyValid(wire_bytes)) {
+    if (!utf8_range::IsStructurallyValid(wire_bytes)) {
       PrintUTF8ErrorLog(MessageName(table), FieldName(table, &entry), "parsing",
                         false);
     }
@@ -2689,7 +2689,7 @@ const char* TcParser::ParseOneMapEntry(
           do_utf8_check |= map_info.log_debug_utf8_failure;
 #endif
           if (type_card.is_utf8() && do_utf8_check &&
-              !utf8_range3::IsStructurallyValid(*str)) {
+              !utf8_range::IsStructurallyValid(*str)) {
             PrintUTF8ErrorLog(MessageName(table), FieldName(table, &entry),
                               "parsing", false);
             if (map_info.fail_on_utf8_failure) {
