@@ -18,9 +18,7 @@
 
 ## 创建 .proto 数据
 
-创建一个 `.proto` 文件来定义你的数据结构。
-
-示例：`addressbook.proto`
+创建一个 `.proto` 文件来定义你的数据结构。示例文件名称：`addressbook.proto`，文件内容如下：
 
 ```protobuf
 syntax = "proto3";
@@ -74,29 +72,31 @@ export LD_LIBRARY_PATH=/path/to/install/pb-bin/lib:$LD_LIBRARY_PATH
 protoc --cpp_out=. addressbook.proto
 ```
 
-这将生成两个文件：
+上述命令会生成以下两个文件：
 - `addressbook.pb.h`：头文件，包含类声明
 - `addressbook.pb.cc`：实现文件，包含类定义
 
 ### 生成其他语言代码
-
-```bash
-# Java
-protoc --java_out=. addressbook.proto
-
-# Python
-protoc --python_out=. addressbook.proto
-
-# Go（需要安装 protoc-gen-go 插件）
-protoc --go_out=. addressbook.proto
-
-# C#
-protoc --csharp_out=. addressbook.proto
-```
-
+- Java
+  ```bash
+  protoc --java_out=. addressbook.proto
+  ```
+- Python
+  ```bash
+  protoc --python_out=. addressbook.proto
+  ```
+- Go（需要安装 protoc-gen-go 插件）
+  ```bash
+  protoc --go_out=. addressbook.proto
+  ```
+- C#
+  ```bash
+  protoc --csharp_out=. addressbook.proto
+  ```
+  
 ## 使用protoc生成的代码
 
-### C++ 编解码示例代码
+### C++编解码示例代码
 
 ```cpp
 #include <iomanip>
@@ -176,41 +176,43 @@ int main() {
 ```
 
 ### 编译和运行
+1. 编译（假设安装在 /path/to/install/pb-bin目录）。
 
-```bash
-# 编译（假设安装在 /path/to/install/pb-bin）
-export PKG_CONFIG_PATH=/path/to/install/pb-bin/lib64/pkgconfig:$PKG_CONFIG_PATH
-g++ -std=c++17 example.cc addressbook.pb.cc \
-    -I/path/to/install/pb-bin/include \
-    $(pkg-config --libs protobuf) \
-    -o example
+   ```bash
+   export PKG_CONFIG_PATH=/path/to/install/pb-bin/lib64/pkgconfig:$PKG_CONFIG_PATH
+   g++ -std=c++17 example.cc addressbook.pb.cc \
+       -I/path/to/install/pb-bin/include \
+       $(pkg-config --libs protobuf) \
+       -o example
+   ```
+2. 运行。
 
-# 运行
-./example
-```
+   ```bash
+   ./example
+   ```
 
 ## 常用操作
 
-### JSON 转换
+### Json转换
 
-Protobuf 支持与 JSON 格式互相转换：
+Protobuf支持与Json格式互相转换。
 
 ```cpp
 #include <google/protobuf/util/json_util.h>
 
-// Protobuf 转 JSON
+// Protobuf转Json
 std::string json_string;
 google::protobuf::util::MessageToJsonString(address_book, &json_string);
 std::cout << json_string << std::endl;
 
-// JSON 转 Protobuf
+// Json转Protobuf
 tutorial::AddressBook address_book2;
 google::protobuf::util::JsonStringToMessage(json_string, &address_book2);
 ```
 
-### 使用 Arena 内存池
+### 使用Arena内存池
 
-Arena 可以提高性能，减少内存碎片：
+Arena可以提高性能，减少内存碎片，使用方法如下。
 
 ```cpp
 // Arena 销毁时自动释放所有对象

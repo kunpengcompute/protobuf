@@ -83,15 +83,15 @@ protobuf/
 
 ## 版本说明
 
-版本对齐与优化说明参见 [《版本说明书》](docs/zh/release_notes.md)。
+版本对齐与优化说明参见《[版本说明书](docs/zh/release_notes.md)》 。
 
 ## 环境部署
 
-编译环境、依赖获取与安装步骤参见 [《编译与安装》](docs/zh/installation_guide.md)。
+编译环境、依赖获取与安装步骤参见 《[编译与安装](docs/zh/installation_guide.md)》。
 
 ## 快速入门
 
-快速入门说明参见 [《快速入门》](docs/zh/quick_start.md)。
+快速入门说明参见《 [快速入门](docs/zh/quick_start.md)》。
 
 ## 文档
 

@@ -12,41 +12,43 @@
 | Git | 2.0 或更高版本 | 版本控制 |
 | Bazel | 7.0+（可选） | 替代构建系统 |
 
-## 代码获取
+## 获取代码
+
+运行以下命令获取代码。
 
 ```bash
 git clone --recursive -b dev_forBD_v4.25.8_SVE2 https://gitcode.com/boostkit/protobuf.git
 cd protobuf
 ```
 
-可选：如果代码获取时未使用 `git clone --recursive` 拉取依赖，则需要下载 Abseil C++ 库到指定目录。
+>说明：如果代码获取时未使用 `git clone --recursive` 拉取依赖，则需要下载Abseil C++库到指定目录，确保 `third_party/abseil-cpp` 目录包含 Abseil 的所有源文件。
+>
+>- 方法一：使用git子模块（推荐）
+>```bash
+>cd protobuf
+>git submodule update --init --recursive
+>```
+>- 方法二：手动下载
+>```bash
+>cd protobuf
+>mkdir -p third_party/abseil-cpp
+>cd third_party/abseil-cpp
+>wget https://github.com/abseil/abseil-cpp/archive/refs/tags/20240722.1.tar.gz
+>tar -xzf 20240722.1.tar.gz --strip-components=1
+>```
 
-```bash
-# 方法一：使用 git 子模块（推荐）
-cd protobuf
-git submodule update --init --recursive
 
-# 方法二：手动下载
-cd protobuf
-mkdir -p third_party/abseil-cpp
-cd third_party/abseil-cpp
-wget https://github.com/abseil/abseil-cpp/archive/refs/tags/20240722.1.tar.gz
-tar -xzf 20240722.1.tar.gz --strip-components=1
-```
-
-确保 `third_party/abseil-cpp` 目录包含 Abseil 的所有源文件。
 
 ## 编译安装
 
-1. 创建安装目录
+1. 创建自定义安装目录（可根据实际需求修改路径）。
 
    ```bash
-   # 创建自定义安装目录（根据实际需求修改路径）
    mkdir -p /path/to/install/pb-bin
    export PROTOBUF_INSTALL_DIR=/path/to/install/pb-bin
    ```
 
-2. 配置构建
+2. 配置构建。
 
    ```bash
    mkdir build
@@ -61,42 +63,40 @@ tar -xzf 20240722.1.tar.gz --strip-components=1
          ..
    ```
 
-3. 编译
+3. 编译。
 
-   ```bash
-   # 使用所有可用 CPU 核心并行编译
-   cmake --build . --parallel $(nproc)
+  - 使用所有可用 CPU 核心并行编译
+    ```bash 
+    cmake --build . --parallel $(nproc)
+    ```
+   - 或指定核心数（例如 32 核）
+       ```bash 
+      cmake --build . --parallel 32
+      ```
 
-   # 或指定核心数（例如 32 核）
-   cmake --build . --parallel 32
-   ```
-
-4. 安装
+4. 安装。
 
    ```bash
    cmake --install .
    ```
 
-5. 验证安装
+5.  验证安装目录。
 
-   验证安装目录：
+    ```bash
+    cmake --install .
+    ```
 
-   ```bash
-   ls -la ${PROTOBUF_INSTALL_DIR}
-   ```
+    回显结果如下：
 
-   回显结果如下：
-
-   ```text
-   total 28
-   drwxr-xr-x.  5 user user  4096 Mar 20 12:19 .
-   drwxr-xr-x. 33 user user  4096 Mar 20 16:39 ..
-   drwxr-xr-x.  2 user user  4096 Mar 20 12:19 bin
-   drwxr-xr-x.  5 user user  4096 Mar 20 12:19 include
-   drwxr-xr-x.  4 user user 12288 Mar 20 12:19 lib64
-   ```
-
-   查看动态库：
+    ```text
+    total 28
+    drwxr-xr-x.  5 user user  4096 Mar 20 12:19 .
+    drwxr-xr-x. 33 user user  4096 Mar 20 16:39 ..
+    drwxr-xr-x.  2 user user  4096 Mar 20 12:19 bin
+    drwxr-xr-x.  5 user user  4096 Mar 20 12:19 include
+    drwxr-xr-x.  4 user user 12288 Mar 20 12:19 lib64
+    ```
+6. 查看动态库。
 
    ```bash
    ls -la ${PROTOBUF_INSTALL_DIR}/lib*/libprotobuf*
@@ -126,7 +126,7 @@ tar -xzf 20240722.1.tar.gz --strip-components=1
 
 ### 性能优化编译标志
 
-针对 ARM 架构（鲲鹏处理器）的推荐编译标志：
+针对 ARM 架构（鲲鹏处理器）的推荐编译标志。
 
 ```bash
 cmake -DCMAKE_CXX_FLAGS="-O3 -march=armv9.2-a+crc+sve+sve2+sve2-bitperm -mtune=native" ..
@@ -141,16 +141,26 @@ cmake -DCMAKE_CXX_FLAGS="-O3 -march=armv9.2-a+crc+sve+sve2+sve2-bitperm -flto=th
 
 ## 运行测试
 
-```bash
-cd build
+进入测试目录。
 
-# 以下三种方式任选其一执行即可
-# 1) 运行所有测试
-ctest --verbose
-
-# 2) 运行特定测试
-ctest -R message_test
-
-# 3) 并行运行测试
-ctest --parallel $(nproc)
 ```
+cd build
+```
+以下三种方式任选其一执行即可。
+- 运行所有测试
+
+  ```
+  ctest --verbose
+  ```
+
+- 运行特定测试
+
+  ```
+  ctest -R message_test
+  ```
+
+- 并行运行测试
+
+  ```
+  ctest --parallel $(nproc)
+  ```
