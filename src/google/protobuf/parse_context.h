@@ -1214,9 +1214,8 @@ const char* ReadPackedVarintArray(const char* ptr, const char* end, Add add) {
 #if defined(__ARM_FEATURE_SVE2)
   svuint64_t base = svdup_n_u64(0x7f7f7f7f7f7f7f7fL);
   svbool_t firstpg = svwhilelt_b64_u32(0, 1);
-  if (ptr >= end) return ptr;
 loop1:
-  while (ptr < end) {
+  while (ptr + 8 <= end) {
     uint64_t tmp = *(uint64_t *)ptr;
     if ((tmp & 0x80) == 0) {
       add(tmp & 0x7f);
@@ -1233,7 +1232,7 @@ loop1:
     }
 
     for (int i = 1; i < 8; i++) {
-      uint64_t bitMask = 1L << ((i * 8) + 7);
+      uint64_t bitMask = 1ULL << ((i * 8) + 7);
       if ((tmp & bitMask) == 0) {
         add(svlastb_u64(firstpg, svbext_u64(svdup_n_u64(tmp & (bitMask - 1)), base)));
         ptr += i + 1;
@@ -1241,14 +1240,13 @@ loop1:
       }
     }
   }
-#else
+#endif
   while (ptr < end) {
     uint64_t varint;
     ptr = VarintParse(ptr, &varint);
     if (ptr == nullptr) return nullptr;
     add(varint);
   }
-#endif
   return ptr;
 }
 
