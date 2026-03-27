@@ -128,6 +128,49 @@ inline StringBlock* StringBlock::Emplace(void* p, size_t n, StringBlock* next) {
   return new (p) StringBlock(next, false, RoundedSize(count), next_size);
 }
 
+struct SafeTlsBlockCache {
+  struct Node {
+    void* next;
+    size_t size;
+  };
+
+  Node* head = nullptr;
+  int count = 0;
+  static constexpr int kMaxCacheBlocks = 16; 
+
+  ~SafeTlsBlockCache() {
+    while (head != nullptr) {
+      Node* temp = head;
+      head = static_cast<Node*>(head->next);
+      SizedDelete(temp, temp->size);
+    }
+  }
+
+  void Push(void* block, size_t size) {
+    if (count >= kMaxCacheBlocks) {
+      SizedDelete(block, size);
+      return;
+    }
+    Node* node = static_cast<Node*>(block);
+    node->next = head;
+    node->size = size;
+    head = node;
+    count++;
+  }
+
+  void* Pop(size_t requested_size) {
+    if (head != nullptr && head->size == requested_size) {
+      Node* result = head;
+      head = static_cast<Node*>(head->next);
+      count--;
+      return result;
+    }
+    return nullptr;
+  }
+};
+
+inline thread_local SafeTlsBlockCache safe_tls_string_block_cache;
+
 inline StringBlock* StringBlock::New(StringBlock* next) {
   // Compute required size, rounding down to a multiple of sizeof(std:string)
   // so that we can optimize the allocation path. I.e., we incur a (constant
@@ -139,7 +182,12 @@ inline StringBlock* StringBlock::New(StringBlock* next) {
     next_size = std::min<size_type>(size * 2, max_size());
   }
   size = RoundedSize(size);
-  void* p = ::operator new(size);
+  void* p = safe_tls_string_block_cache.Pop(size);
+  if (p != nullptr) {
+    size = static_cast<SafeTlsBlockCache::Node*>(p)->size;
+  } else {
+    p = ::operator new(size);
+  }  
   return new (p) StringBlock(next, true, size, next_size);
 }
 
@@ -147,7 +195,7 @@ inline size_t StringBlock::Delete(StringBlock* block) {
   ABSL_DCHECK(block != nullptr);
   if (!block->heap_allocated_) return size_t{0};
   size_t size = block->allocated_size();
-  internal::SizedDelete(block, size);
+  safe_tls_string_block_cache.Push(block, size);
   return size;
 }
 
