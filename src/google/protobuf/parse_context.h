@@ -44,6 +44,9 @@
 
 // Must be included last.
 #include "google/protobuf/port_def.inc"
+#if defined(__ARM_FEATURE_SVE2)
+#include <arm_sve.h>
+#endif
 
 
 namespace google {
@@ -1358,6 +1361,36 @@ const char* EpsCopyInputStream::ReadPackedFixed(const char* ptr, int size,
 
 template <typename Add>
 const char* ReadPackedVarintArray(const char* ptr, const char* end, Add add) {
+#if defined(__ARM_FEATURE_SVE2)
+  svuint64_t base = svdup_n_u64(0x7f7f7f7f7f7f7f7fL);
+  svbool_t firstpg = svwhilelt_b64_u32(0, 1);
+loop1:
+  while (ptr + 8 <= end) {
+    uint64_t tmp = *(uint64_t *)ptr;
+    if ((tmp & 0x80) == 0) {
+      add(tmp & 0x7f);
+      ptr++;
+      continue;
+    }
+    if (ABSL_PREDICT_FALSE((tmp & 0x8080808080808080) == 0x8080808080808080)) {
+      uint64_t varint;
+      uint64_t first8;
+      ptr = VarintParseSlowArm(ptr, &varint, tmp);;
+      if (ABSL_PREDICT_FALSE(ptr == nullptr)) return nullptr;
+      add(varint);
+      goto loop1;
+    }
+
+    for (int i = 1; i < 8; i++) {
+      uint64_t bitMask = 1ULL << ((i * 8) + 7);
+      if ((tmp & bitMask) == 0) {
+        add(svlastb_u64(firstpg, svbext_u64(svdup_n_u64(tmp & (bitMask - 1)), base)));
+        ptr += i + 1;
+        goto loop1;
+      }
+    }
+  }
+#endif
   while (ptr < end) {
     uint64_t varint;
     ptr = VarintParse(ptr, &varint);

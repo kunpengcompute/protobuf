@@ -937,6 +937,72 @@ class PROTOBUF_EXPORT EpsCopyOutputStream {
     return ptr;
   }
 
+
+  //  EncodeBytes finction encodes an uint value by selecting 7 bits from lsb and adding the msb in each loop
+  //  Varints in different length need different loop counts
+  //  The fixed loop will be unrolled by compiler automantically
+  PROTOBUF_ALWAYS_INLINE static uint8_t* EncodeBytes(uint32_t value, uint8_t* ptr, size_t num) {
+    for (size_t i = 0; i < num; ++i) {
+      ptr[i] = (uint8_t)((value >> (7 * i)) & 0x7F) | (1U << 7);
+    }
+    ptr[num] = (uint8_t)(value >> (num * 7));
+    ptr += (num + 1);
+    return ptr;
+  }
+
+   PROTOBUF_ALWAYS_INLINE static uint8_t* UnsafeVarint(uint32_t value,
+                                                      uint8_t* ptr) {
+    if (value < (1U << 7)) {
+      *ptr = value & 0x7F;
+      ++ptr;
+    } else if (value < (1U << 14)) {
+      ptr = EncodeBytes(value, ptr, 1);
+    } else if (value < (1U << 21)) {
+      ptr = EncodeBytes(value, ptr, 2);
+    } else if (value < (1U << 28)) {
+      ptr = EncodeBytes(value, ptr, 3);
+    } else {
+      ptr = EncodeBytes(value, ptr, 4);
+    }
+    return ptr;
+  }
+
+  PROTOBUF_ALWAYS_INLINE static uint8_t* EncodeBytes(uint64_t& value, uint8_t* ptr, size_t num) {
+    for (size_t i = 0; i < num; ++i) {
+      ptr[i] = (uint8_t)((value >> (7 * i)) & 0x7F) | (1ULL << 7);
+    }
+    ptr[num] = (uint8_t)(value >> num * 7);
+    ptr += num + 1;
+    return ptr;
+  }
+
+   PROTOBUF_ALWAYS_INLINE static uint8_t* UnsafeVarint(uint64_t value,
+                                                      uint8_t* ptr) {
+    if (value < (1ULL << 7)) {
+      *ptr = value & 0x7F;
+      ++ptr;
+    } else if (value < (1ULL << 14)) {
+      ptr = EncodeBytes(value, ptr, 1);
+    } else if (value < (1ULL << 21)) {
+      ptr = EncodeBytes(value, ptr, 2);
+    } else if (value < (1ULL << 28)) {
+      ptr = EncodeBytes(value, ptr, 3);
+    } else if (value < (1ULL << 35)) {
+      ptr = EncodeBytes(value, ptr, 4);
+    } else if (value < (1ULL << 42)) {
+      ptr = EncodeBytes(value, ptr, 5);
+    } else if (value < (1ULL << 49)) {
+      ptr = EncodeBytes(value, ptr, 6);
+    } else if (value < (1ULL << 56)) {
+      ptr = EncodeBytes(value, ptr, 7);
+    } else if (value < (1ULL << 63)) {
+      ptr = EncodeBytes(value, ptr, 8);
+    } else {
+      ptr = EncodeBytes(value, ptr, 9);
+    }
+    return ptr;
+  }
+
   PROTOBUF_ALWAYS_INLINE static uint8_t* UnsafeWriteSize(uint32_t value,
                                                          uint8_t* ptr) {
     while (ABSL_PREDICT_FALSE(value >= 0x80)) {
