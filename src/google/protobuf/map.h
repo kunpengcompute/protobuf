@@ -781,13 +781,25 @@ class KeyMapBase : public UntypedMapBase {
   // Insert the given node.
   // If the key is a duplicate, it inserts the new node and deletes the old one.
   bool InsertOrReplaceNode(KeyNode* node) {
+    return InsertNodeImpl(node, true);
+  }
+
+  bool InsertNodeWithoutResizeCheck(KeyNode* node) {
+    return InsertNodeImpl(node, false);
+  }
+
+  bool ResizeIfLoadIsOutOfRange(size_type new_size) {
+    return ResizeIfLoadIsOutOfRangeImpl(new_size, true);
+  }
+
+  bool InsertNodeImpl(KeyNode* node, bool allow_shrink) {
     bool is_new = true;
     auto p = this->FindHelper(node->key());
     map_index_t b = p.bucket;
     if (ABSL_PREDICT_FALSE(p.node != nullptr)) {
       EraseImpl(p.bucket, static_cast<KeyNode*>(p.node), true);
       is_new = false;
-    } else if (ResizeIfLoadIsOutOfRange(num_elements_ + 1)) {
+    } else if (ResizeIfLoadIsOutOfRangeImpl(num_elements_ + 1, allow_shrink)) {
       b = BucketNumber(node->key());  // bucket_number
     }
     InsertUnique(b, node);
@@ -865,7 +877,7 @@ class KeyMapBase : public UntypedMapBase {
   // destroy the expected big-O bounds for some operations. By having the
   // policy that sometimes we resize down as well as up, clients can easily
   // keep O(size()) = O(number of buckets) if they want that.
-  bool ResizeIfLoadIsOutOfRange(size_type new_size) {
+  bool ResizeIfLoadIsOutOfRangeImpl(size_type new_size, bool allow_shrink) {
     const size_type hi_cutoff = CalculateHiCutoff(num_buckets_);
     const size_type lo_cutoff = hi_cutoff / 4;
     // We don't care how many elements are in trees.  If a lot are,
@@ -878,7 +890,7 @@ class KeyMapBase : public UntypedMapBase {
                    : num_buckets_ * 2);
         return true;
       }
-    } else if (ABSL_PREDICT_FALSE(new_size <= lo_cutoff &&
+    } else if (allow_shrink && ABSL_PREDICT_FALSE(new_size <= lo_cutoff &&
                                   num_buckets_ > kMinTableSize)) {
       size_type lg2_of_size_reduction_factor = 1;
       // It's possible we want to shrink a lot here... size() could even be 0.
@@ -948,6 +960,21 @@ class KeyMapBase : public UntypedMapBase {
     }
     DeleteTable(old_table, old_table_size);
     AssertLoadFactor();
+  }
+
+  void InternalReserve(size_t additional_count) {
+    size_t expected_size = this->num_elements_ + additional_count;
+    if (expected_size > CalculateHiCutoff(this->num_buckets_)) {
+      size_type new_num_buckets =
+          this->num_buckets_ == kGlobalEmptyTableSize ? kMinTableSize
+                                                     : this->num_buckets_;
+      while (CalculateHiCutoff(new_num_buckets) < expected_size) {
+        new_num_buckets *= 2;
+      }
+      if (new_num_buckets > this->num_buckets_) {
+        this->Resize(new_num_buckets);
+      }
+    }
   }
 
   map_index_t BucketNumber(typename TS::ViewType k) const {

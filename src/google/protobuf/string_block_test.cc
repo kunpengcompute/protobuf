@@ -13,6 +13,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <thread>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -144,6 +145,82 @@ TEST(StringBlockTest, EmplaceMultipleBlocks) {
     EXPECT_THAT(StringBlock::Delete(block), Eq(0));
     block = next;
   }
+}
+
+TEST(StringBlockTest, TlsCacheReuseAndLifo) {
+  auto clear_tls_cache = []() {
+    while (safe_tls_string_block_cache.head != nullptr) {
+      auto* temp = safe_tls_string_block_cache.head;
+      safe_tls_string_block_cache.head = 
+          static_cast<decltype(temp)>(temp->next);
+      internal::SizedDelete(temp, temp->size);
+    }
+    safe_tls_string_block_cache.count = 0;
+  };
+
+  clear_tls_cache();
+
+  StringBlock* b1 = StringBlock::New(nullptr);
+  StringBlock* b2 = StringBlock::New(nullptr);
+  void* addr1 = b1;
+  void* addr2 = b2;
+
+  StringBlock::Delete(b1);
+  StringBlock::Delete(b2);
+
+  EXPECT_THAT(safe_tls_string_block_cache.count, Eq(2));
+
+  StringBlock* b3 = StringBlock::New(nullptr);
+  EXPECT_THAT(static_cast<void*>(b3), Eq(addr2));
+
+  StringBlock* b4 = StringBlock::New(nullptr);
+  EXPECT_THAT(static_cast<void*>(b4), Eq(addr1));
+
+  EXPECT_THAT(safe_tls_string_block_cache.count, Eq(0));
+
+  StringBlock::Delete(b3);
+  StringBlock::Delete(b4);
+}
+
+TEST(StringBlockTest, TlsCacheCapacityLimit) {
+  auto clear_tls_cache = []() {
+    while (safe_tls_string_block_cache.head != nullptr) {
+      auto* temp = safe_tls_string_block_cache.head;
+      safe_tls_string_block_cache.head = 
+          static_cast<decltype(temp)>(temp->next);
+      internal::SizedDelete(temp, temp->size);
+    }
+    safe_tls_string_block_cache.count = 0;
+  };
+
+  clear_tls_cache();
+
+  std::vector<StringBlock*> blocks;
+  for (int i = 0; i < 40; ++i) {
+    blocks.push_back(StringBlock::New(nullptr));
+  }
+
+  for (int i = 0; i < 40; ++i) {
+    StringBlock::Delete(blocks[i]);
+  }
+  EXPECT_THAT(safe_tls_string_block_cache.count, Eq(SafeTlsBlockCache::kMaxCacheBlocks));
+}
+
+TEST(StringBlockTest, TlsCacheThreadIsolation) {
+  int main_thread_count = safe_tls_string_block_cache.count;
+
+  std::thread t([]() {
+    EXPECT_THAT(safe_tls_string_block_cache.count, Eq(0));
+
+    StringBlock* b1 = StringBlock::New(nullptr);
+    StringBlock::Delete(b1);
+
+    EXPECT_THAT(safe_tls_string_block_cache.count, Eq(1));
+  });
+
+  t.join();
+
+  EXPECT_THAT(safe_tls_string_block_cache.count, Eq(main_thread_count));
 }
 
 }  // namespace

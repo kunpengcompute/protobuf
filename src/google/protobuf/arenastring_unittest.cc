@@ -204,6 +204,31 @@ TEST_P(SingleArena, CopyConstructLong) {
   field.Destroy();
 }
 
+TEST_P(SingleArena, ReadArenaStringAppendOptimization) {
+  auto arena = GetArena();
+  ArenaStringPtr field;
+  field.InitDefault();
+
+  const std::string kLongString = "This_is_a_string_longer_than_15_bytes_to_bypass_SSO_and_test_append";
+
+  std::string wire_data;
+  wire_data.push_back(static_cast<char>(kLongString.size()));
+  wire_data += kLongString;
+
+  const char* ptr = nullptr;
+  internal::ParseContext ctx(io::CodedInputStream::GetDefaultRecursionLimit(),
+                             false, &ptr, absl::string_view(wire_data));
+
+  ptr = ctx.ReadArenaString(ptr, &field, arena.get());
+
+  ASSERT_NE(ptr, nullptr);
+  EXPECT_EQ(field.Get(), kLongString);
+
+  if (!arena) {
+    field.Destroy();
+  }
+}
+
 
 }  // namespace protobuf
 }  // namespace google
