@@ -204,6 +204,7 @@ TEST_P(SingleArena, CopyConstructLong) {
   field.Destroy();
 }
 
+#if defined(__aarch64__)
 TEST_P(SingleArena, ReadArenaStringAppendOptimization) {
   auto arena = GetArena();
   ArenaStringPtr field;
@@ -228,6 +229,7 @@ TEST_P(SingleArena, ReadArenaStringAppendOptimization) {
     field.Destroy();
   }
 }
+#endif
 
 
 }  // namespace protobuf

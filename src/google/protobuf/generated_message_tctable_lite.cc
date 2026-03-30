@@ -1826,26 +1826,28 @@ PROTOBUF_ALWAYS_INLINE const char* TcParser::RepeatedString(
     }
   };
 
+  #if defined(__aarch64__)
   int contiguous_count = 0;
   const char* peek_ptr = ptr;
-  
-  while (ctx->DataAvailable(peek_ptr) && 
-          UnalignedLoad<TagType>(peek_ptr) == expected_tag) {
+
+  while (ctx->DataAvailable(peek_ptr) &&
+         UnalignedLoad<TagType>(peek_ptr) == expected_tag) {
     contiguous_count++;
-    peek_ptr += sizeof(TagType); 
-    
+    peek_ptr += sizeof(TagType);
+
     int size = ReadSize(&peek_ptr);
-    
+
     if (ABSL_PREDICT_FALSE(size < 0 || peek_ptr == nullptr)) {
-      break; 
+      break;
     }
-    
-    peek_ptr += size; 
+
+    peek_ptr += size;
   }
 
   if (contiguous_count > 1) {
     field.Reserve(field.size() + contiguous_count);
   }
+  #endif
 
   auto* arena = field.GetArena();
   SerialArena* serial_arena;
@@ -2587,10 +2589,16 @@ PROTOBUF_ALWAYS_INLINE const char* TcParser::ParseRepeatedStringOnce(
     RepeatedPtrField<std::string>& field) {
   int size = ReadSize(&ptr);
   if (ABSL_PREDICT_FALSE(!ptr)) return {};
+  #if defined(__aarch64__)
   __builtin_prefetch(ptr, 0, 0);
+  #endif
   auto* str = new (serial_arena->AllocateFromStringBlock()) std::string();
   field.AddAllocatedForParse(str, arena);
+  #if defined(__aarch64__)
   ptr = ctx->AppendString(ptr, size, str);
+  #else
+  ptr = ctx->ReadString(ptr, size, str);
+  #endif
   if (ABSL_PREDICT_FALSE(!ptr)) return {};
   PROTOBUF_ASSUME(ptr != nullptr);
   return ptr;
@@ -2959,8 +2967,12 @@ const char* TcParser::ParseOneMapEntry(
           const int size = ReadSize(&ptr);
           if (ABSL_PREDICT_FALSE(ptr == nullptr)) return nullptr;
           std::string* str = reinterpret_cast<std::string*>(obj);
+          #if defined(__aarch64__)
           str->clear();
           ptr = ctx->AppendString(ptr, size, str);
+          #else
+          ptr = ctx->ReadString(ptr, size, str);
+          #endif
           if (ABSL_PREDICT_FALSE(ptr == nullptr)) return nullptr;
           bool do_utf8_check = map_info.fail_on_utf8_failure;
           if (type_card.is_utf8() && do_utf8_check &&
@@ -3020,6 +3032,7 @@ PROTOBUF_NOINLINE const char* TcParser::MpMap(PROTOBUF_TC_PARAM_DECL) {
 
   const uint32_t saved_tag = data.tag();
 
+  #if defined(__aarch64__)
   size_t lookahead_count = 0;
   const char* scan_ptr = ptr;
   uint32_t next_tag = saved_tag;
@@ -3056,6 +3069,7 @@ PROTOBUF_NOINLINE const char* TcParser::MpMap(PROTOBUF_TC_PARAM_DECL) {
         break;
     }
   }
+  #endif
 
   while (true) {
     NodeBase* node = map.AllocNode();
@@ -3113,20 +3127,40 @@ PROTOBUF_NOINLINE const char* TcParser::MpMap(PROTOBUF_TC_PARAM_DECL) {
       // Done parsing the node, insert it.
       switch (map.type_info().key_type_kind()) {
         case UntypedMapBase::TypeKind::kBool:
+          #if defined(__aarch64__)
           static_cast<KeyMapBase<bool>&>(map).InsertNodeWithoutResizeCheck(
               static_cast<KeyMapBase<bool>::KeyNode*>(node));
+          #else
+          static_cast<KeyMapBase<bool>&>(map).InsertOrReplaceNode(
+              static_cast<KeyMapBase<bool>::KeyNode*>(node));
+          #endif
           break;
         case UntypedMapBase::TypeKind::kU32:
+          #if defined(__aarch64__)
           static_cast<KeyMapBase<uint32_t>&>(map).InsertNodeWithoutResizeCheck(
               static_cast<KeyMapBase<uint32_t>::KeyNode*>(node));
+          #else
+          static_cast<KeyMapBase<uint32_t>&>(map).InsertOrReplaceNode(
+              static_cast<KeyMapBase<uint32_t>::KeyNode*>(node));
+          #endif
           break;
         case UntypedMapBase::TypeKind::kU64:
+          #if defined(__aarch64__)
           static_cast<KeyMapBase<uint64_t>&>(map).InsertNodeWithoutResizeCheck(
               static_cast<KeyMapBase<uint64_t>::KeyNode*>(node));
+          #else
+          static_cast<KeyMapBase<uint64_t>&>(map).InsertOrReplaceNode(
+              static_cast<KeyMapBase<uint64_t>::KeyNode*>(node));
+          #endif
           break;
         case UntypedMapBase::TypeKind::kString:
+          #if defined(__aarch64__)
           static_cast<KeyMapBase<std::string>&>(map).InsertNodeWithoutResizeCheck(
               static_cast<KeyMapBase<std::string>::KeyNode*>(node));
+          #else
+          static_cast<KeyMapBase<std::string>&>(map).InsertOrReplaceNode(
+              static_cast<KeyMapBase<std::string>::KeyNode*>(node));
+          #endif
           break;
         default:
           Unreachable();
