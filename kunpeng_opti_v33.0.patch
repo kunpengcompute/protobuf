@@ -1,46 +1,56 @@
 diff --git a/src/google/protobuf/arena.h b/src/google/protobuf/arena.h
-index 290a2599c..3cfbb27c3 100644
+index 290a2599c..6b395a57d 100644
 --- a/src/google/protobuf/arena.h
 +++ b/src/google/protobuf/arena.h
-@@ -307,7 +307,7 @@ class PROTOBUF_EXPORT PROTOBUF_ALIGNAS(8)
+@@ -307,7 +307,11 @@ class PROTOBUF_EXPORT PROTOBUF_ALIGNAS(8)
        // Such a scheme would only waste (align - 8)/2 bytes on average, but
        // requires a dedicated function in the outline arena allocation
        // functions. Possibly re-evaluate tradeoffs later.
--      auto align_as = internal::ArenaAlignAs(align);
-+      auto align_as = internal::ArenaAlignAs(std::min(align,static_cast<decltype(align)>(16)));
++      #if defined(__aarch64__)
++      auto align_as = internal::ArenaAlignAs(std::min(align, static_cast<decltype(align)>(16)));
++      #else
+       auto align_as = internal::ArenaAlignAs(align);
++      #endif
        return align_as.Ceil(Allocate(align_as.Padded(size)));
      }
    }
-@@ -705,7 +705,7 @@ class PROTOBUF_EXPORT PROTOBUF_ALIGNAS(8)
+@@ -705,7 +709,11 @@ class PROTOBUF_EXPORT PROTOBUF_ALIGNAS(8)
        // Such a scheme would only waste (align - 8)/2 bytes on average, but
        // requires a dedicated function in the outline arena allocation
        // functions. Possibly re-evaluate tradeoffs later.
--      auto align_as = internal::ArenaAlignAs(align);
-+      auto align_as = internal::ArenaAlignAs(std::min(align,static_cast<decltype(align)>(16)));
++      #if defined(__aarch64__)
++      auto align_as = internal::ArenaAlignAs(std::min(align, static_cast<decltype(align)>(16)));
++      #else
+       auto align_as = internal::ArenaAlignAs(align);
++      #endif
        return align_as.Ceil(AllocateForArray(align_as.Padded(n)));
      }
    }
 diff --git a/src/google/protobuf/arenastring.cc b/src/google/protobuf/arenastring.cc
-index 170205f42..d02b915b6 100644
+index 170205f42..f6e93f118 100644
 --- a/src/google/protobuf/arenastring.cc
 +++ b/src/google/protobuf/arenastring.cc
-@@ -277,7 +277,7 @@ const char* EpsCopyInputStream::ReadArenaString(const char* ptr,
+@@ -277,7 +277,11 @@ const char* EpsCopyInputStream::ReadArenaString(const char* ptr,
    if (!ptr) return nullptr;
  
    auto* str = s->NewString(arena);
--  ptr = ReadString(ptr, size, str);
++  #if defined(__aarch64__)
 +  ptr = AppendString(ptr, size, str);
++  #else
+   ptr = ReadString(ptr, size, str);
++  #endif
    GOOGLE_PROTOBUF_PARSER_ASSERT(ptr);
    return ptr;
  }
 diff --git a/src/google/protobuf/arenastring_unittest.cc b/src/google/protobuf/arenastring_unittest.cc
-index 2afdd9d57..17b28f6a7 100644
+index 2afdd9d57..2d30289c0 100644
 --- a/src/google/protobuf/arenastring_unittest.cc
 +++ b/src/google/protobuf/arenastring_unittest.cc
-@@ -204,6 +204,31 @@ TEST_P(SingleArena, CopyConstructLong) {
+@@ -204,6 +204,33 @@ TEST_P(SingleArena, CopyConstructLong) {
    field.Destroy();
  }
  
++#if defined(__aarch64__)
 +TEST_P(SingleArena, ReadArenaStringAppendOptimization) {
 +  auto arena = GetArena();
 +  ArenaStringPtr field;
@@ -65,68 +75,80 @@ index 2afdd9d57..17b28f6a7 100644
 +    field.Destroy();
 +  }
 +}
++#endif
 +
  
  }  // namespace protobuf
  }  // namespace google
 diff --git a/src/google/protobuf/generated_message_tctable_lite.cc b/src/google/protobuf/generated_message_tctable_lite.cc
-index 246cde95d..46ae5b5b4 100644
+index 246cde95d..5ed380ac6 100644
 --- a/src/google/protobuf/generated_message_tctable_lite.cc
 +++ b/src/google/protobuf/generated_message_tctable_lite.cc
-@@ -1826,6 +1826,27 @@ PROTOBUF_ALWAYS_INLINE const char* TcParser::RepeatedString(
+@@ -1826,6 +1826,29 @@ PROTOBUF_ALWAYS_INLINE const char* TcParser::RepeatedString(
      }
    };
  
++  #if defined(__aarch64__)
 +  int contiguous_count = 0;
 +  const char* peek_ptr = ptr;
-+  
-+  while (ctx->DataAvailable(peek_ptr) && 
-+          UnalignedLoad<TagType>(peek_ptr) == expected_tag) {
++
++  while (ctx->DataAvailable(peek_ptr) &&
++         UnalignedLoad<TagType>(peek_ptr) == expected_tag) {
 +    contiguous_count++;
-+    peek_ptr += sizeof(TagType); 
-+    
++    peek_ptr += sizeof(TagType);
++
 +    int size = ReadSize(&peek_ptr);
-+    
++
 +    if (ABSL_PREDICT_FALSE(size < 0 || peek_ptr == nullptr)) {
-+      break; 
++      break;
 +    }
-+    
-+    peek_ptr += size; 
++
++    peek_ptr += size;
 +  }
 +
 +  if (contiguous_count > 1) {
 +    field.Reserve(field.size() + contiguous_count);
 +  }
++  #endif
 +
    auto* arena = field.GetArena();
    SerialArena* serial_arena;
    if (ABSL_PREDICT_TRUE(arena != nullptr &&
-@@ -2566,9 +2587,10 @@ PROTOBUF_ALWAYS_INLINE const char* TcParser::ParseRepeatedStringOnce(
+@@ -2566,9 +2589,16 @@ PROTOBUF_ALWAYS_INLINE const char* TcParser::ParseRepeatedStringOnce(
      RepeatedPtrField<std::string>& field) {
    int size = ReadSize(&ptr);
    if (ABSL_PREDICT_FALSE(!ptr)) return {};
++  #if defined(__aarch64__)
 +  __builtin_prefetch(ptr, 0, 0);
++  #endif
    auto* str = new (serial_arena->AllocateFromStringBlock()) std::string();
    field.AddAllocatedForParse(str, arena);
--  ptr = ctx->ReadString(ptr, size, str);
++  #if defined(__aarch64__)
 +  ptr = ctx->AppendString(ptr, size, str);
++  #else
+   ptr = ctx->ReadString(ptr, size, str);
++  #endif
    if (ABSL_PREDICT_FALSE(!ptr)) return {};
    PROTOBUF_ASSUME(ptr != nullptr);
    return ptr;
-@@ -2937,7 +2959,8 @@ const char* TcParser::ParseOneMapEntry(
+@@ -2937,7 +2967,12 @@ const char* TcParser::ParseOneMapEntry(
            const int size = ReadSize(&ptr);
            if (ABSL_PREDICT_FALSE(ptr == nullptr)) return nullptr;
            std::string* str = reinterpret_cast<std::string*>(obj);
--          ptr = ctx->ReadString(ptr, size, str);
++          #if defined(__aarch64__)
 +          str->clear();
 +          ptr = ctx->AppendString(ptr, size, str);
++          #else
+           ptr = ctx->ReadString(ptr, size, str);
++          #endif
            if (ABSL_PREDICT_FALSE(ptr == nullptr)) return nullptr;
            bool do_utf8_check = map_info.fail_on_utf8_failure;
            if (type_card.is_utf8() && do_utf8_check &&
-@@ -2997,6 +3020,43 @@ PROTOBUF_NOINLINE const char* TcParser::MpMap(PROTOBUF_TC_PARAM_DECL) {
+@@ -2997,6 +3032,45 @@ PROTOBUF_NOINLINE const char* TcParser::MpMap(PROTOBUF_TC_PARAM_DECL) {
  
    const uint32_t saved_tag = data.tag();
  
++  #if defined(__aarch64__)
 +  size_t lookahead_count = 0;
 +  const char* scan_ptr = ptr;
 +  uint32_t next_tag = saved_tag;
@@ -163,56 +185,77 @@ index 246cde95d..46ae5b5b4 100644
 +        break;
 +    }
 +  }
++  #endif
 +
    while (true) {
      NodeBase* node = map.AllocNode();
      char* const node_end =
-@@ -3053,19 +3113,19 @@ PROTOBUF_NOINLINE const char* TcParser::MpMap(PROTOBUF_TC_PARAM_DECL) {
+@@ -3053,20 +3127,40 @@ PROTOBUF_NOINLINE const char* TcParser::MpMap(PROTOBUF_TC_PARAM_DECL) {
        // Done parsing the node, insert it.
        switch (map.type_info().key_type_kind()) {
          case UntypedMapBase::TypeKind::kBool:
--          static_cast<KeyMapBase<bool>&>(map).InsertOrReplaceNode(
++          #if defined(__aarch64__)
 +          static_cast<KeyMapBase<bool>&>(map).InsertNodeWithoutResizeCheck(
++              static_cast<KeyMapBase<bool>::KeyNode*>(node));
++          #else
+           static_cast<KeyMapBase<bool>&>(map).InsertOrReplaceNode(
                static_cast<KeyMapBase<bool>::KeyNode*>(node));
++          #endif
            break;
          case UntypedMapBase::TypeKind::kU32:
--          static_cast<KeyMapBase<uint32_t>&>(map).InsertOrReplaceNode(
++          #if defined(__aarch64__)
 +          static_cast<KeyMapBase<uint32_t>&>(map).InsertNodeWithoutResizeCheck(
++              static_cast<KeyMapBase<uint32_t>::KeyNode*>(node));
++          #else
+           static_cast<KeyMapBase<uint32_t>&>(map).InsertOrReplaceNode(
                static_cast<KeyMapBase<uint32_t>::KeyNode*>(node));
++          #endif
            break;
          case UntypedMapBase::TypeKind::kU64:
--          static_cast<KeyMapBase<uint64_t>&>(map).InsertOrReplaceNode(
++          #if defined(__aarch64__)
 +          static_cast<KeyMapBase<uint64_t>&>(map).InsertNodeWithoutResizeCheck(
++              static_cast<KeyMapBase<uint64_t>::KeyNode*>(node));
++          #else
+           static_cast<KeyMapBase<uint64_t>&>(map).InsertOrReplaceNode(
                static_cast<KeyMapBase<uint64_t>::KeyNode*>(node));
++          #endif
            break;
          case UntypedMapBase::TypeKind::kString:
--          static_cast<KeyMapBase<std::string>&>(map).InsertOrReplaceNode(
++          #if defined(__aarch64__)
 +          static_cast<KeyMapBase<std::string>&>(map).InsertNodeWithoutResizeCheck(
++              static_cast<KeyMapBase<std::string>::KeyNode*>(node));
++          #else
+           static_cast<KeyMapBase<std::string>&>(map).InsertOrReplaceNode(
                static_cast<KeyMapBase<std::string>::KeyNode*>(node));
++          #endif
            break;
          default:
+           Unreachable();
 diff --git a/src/google/protobuf/generated_message_tctable_lite_test.cc b/src/google/protobuf/generated_message_tctable_lite_test.cc
-index 9dc5c40de..71aaef7f7 100644
+index 9dc5c40de..e5ea849a6 100644
 --- a/src/google/protobuf/generated_message_tctable_lite_test.cc
 +++ b/src/google/protobuf/generated_message_tctable_lite_test.cc
-@@ -28,6 +28,7 @@
+@@ -28,6 +28,9 @@
  #include "google/protobuf/parse_context.h"
  #include "google/protobuf/port.h"
  #include "google/protobuf/unittest.pb.h"
++#if defined(__aarch64__)
 +#include "google/protobuf/map_unittest.pb.h"
++#endif
  #include "google/protobuf/wire_format_lite.h"
  
  
-@@ -986,7 +987,73 @@ TEST(GeneratedMessageTctableLiteTest,
+@@ -986,7 +989,75 @@ TEST(GeneratedMessageTctableLiteTest,
    EXPECT_LE(proto.vals().Capacity(), 2048);
  }
  
++#if defined(__aarch64__)
 +TEST(GeneratedMessageTctableLiteTest, RepeatedStringLookaheadAndAppendOptimization) {
 +  proto2_unittest::TestAllTypes original_message;
 +  
 +  const int kItemCount = 2000;
 +  const std::string kLongStringBase = "This_is_a_string_longer_than_15_bytes_to_defeat_SSO_";
- 
++
 +  for (int i = 0; i < kItemCount; ++i) {
 +    original_message.add_repeated_string(kLongStringBase + std::to_string(i));
 +  }
@@ -245,7 +288,7 @@ index 9dc5c40de..71aaef7f7 100644
 +TEST(GeneratedMessageTctableLiteTest, MapEntryClearAndAppendOptimization) {
 +  proto2_unittest::TestMap msg1;
 +  proto2_unittest::TestMap msg2;
-+
+ 
 +  const std::string kTargetKey = "collision_key";
 +  const std::string kLongOldValue = "Long_String_Value_To_Defeat_SSO_1234567890";
 +  const std::string kShortNewValue = "Short";
@@ -274,11 +317,12 @@ index 9dc5c40de..71aaef7f7 100644
 +  parsed_value = parsed_message->map_string_string().at(kTargetKey);
 +  ASSERT_EQ(parsed_value, kShortNewValue);
 +}
++#endif
  
  }  // namespace internal
  }  // namespace protobuf
 diff --git a/src/google/protobuf/io/coded_stream.h b/src/google/protobuf/io/coded_stream.h
-index 19597d151..5bd8aac22 100644
+index 19597d151..99cccbcce 100644
 --- a/src/google/protobuf/io/coded_stream.h
 +++ b/src/google/protobuf/io/coded_stream.h
 @@ -97,6 +97,9 @@
@@ -347,7 +391,7 @@ index 19597d151..5bd8aac22 100644
    }
    template <typename T>
    PROTOBUF_ALWAYS_INLINE uint8_t* WriteEnumPacked(int num, const T& r, int size,
-@@ -937,6 +970,259 @@ class PROTOBUF_EXPORT EpsCopyOutputStream {
+@@ -937,6 +970,261 @@ class PROTOBUF_EXPORT EpsCopyOutputStream {
      return ptr;
    }
  
@@ -539,7 +583,8 @@ index 19597d151..5bd8aac22 100644
 +  }
 +#endif // __ARM_FEATURE_SVE2
 +
-+  //  EncodeBytes finction encodes an uint value by selecting 7 bits from lsb and adding the msb in each loop
++  #if defined(__aarch64__)
++  //  EncodeBytes function encodes an uint value by selecting 7 bits from lsb and adding the msb in each loop
 +  //  Varints in different length need different loop counts
 +  //  The fixed loop will be unrolled by compiler automantically
 +  PROTOBUF_ALWAYS_INLINE static uint8_t* EncodeBytes(uint32_t value, uint8_t* ptr, size_t num) {
@@ -577,7 +622,7 @@ index 19597d151..5bd8aac22 100644
 +    return ptr;
 +  }
 +
-+   PROTOBUF_ALWAYS_INLINE static uint8_t* UnsafeVarint(uint64_t value,
++  PROTOBUF_ALWAYS_INLINE static uint8_t* UnsafeVarint(uint64_t value,
 +                                                      uint8_t* ptr) {
 +    if (value < (1ULL << 7)) {
 +      *ptr = value & 0x7F;
@@ -603,18 +648,21 @@ index 19597d151..5bd8aac22 100644
 +    }
 +    return ptr;
 +  }
++  #endif
 +
    PROTOBUF_ALWAYS_INLINE static uint8_t* UnsafeWriteSize(uint32_t value,
                                                           uint8_t* ptr) {
      while (ABSL_PREDICT_FALSE(value >= 0x80)) {
 diff --git a/src/google/protobuf/map.h b/src/google/protobuf/map.h
-index 867fea587..42df76585 100644
+index 867fea587..b412d17e5 100644
 --- a/src/google/protobuf/map.h
 +++ b/src/google/protobuf/map.h
-@@ -781,13 +781,25 @@ class KeyMapBase : public UntypedMapBase {
+@@ -780,6 +780,34 @@ class KeyMapBase : public UntypedMapBase {
+ 
    // Insert the given node.
    // If the key is a duplicate, it inserts the new node and deletes the old one.
-   bool InsertOrReplaceNode(KeyNode* node) {
++  #if defined(__aarch64__)
++  bool InsertOrReplaceNode(KeyNode* node) {
 +    return InsertNodeImpl(node, true);
 +  }
 +
@@ -627,27 +675,42 @@ index 867fea587..42df76585 100644
 +  }
 +
 +  bool InsertNodeImpl(KeyNode* node, bool allow_shrink) {
++    bool is_new = true;
++    auto p = this->FindHelper(node->key());
++    map_index_t b = p.bucket;
++    if (ABSL_PREDICT_FALSE(p.node != nullptr)) {
++      EraseImpl(p.bucket, static_cast<KeyNode*>(p.node), true);
++      is_new = false;
++    } else if (ResizeIfLoadIsOutOfRangeImpl(num_elements_ + 1, allow_shrink)) {
++      b = BucketNumber(node->key());  // bucket_number
++    }
++    InsertUnique(b, node);
++    ++num_elements_;
++    return is_new;
++  }
++  #else
+   bool InsertOrReplaceNode(KeyNode* node) {
      bool is_new = true;
      auto p = this->FindHelper(node->key());
-     map_index_t b = p.bucket;
-     if (ABSL_PREDICT_FALSE(p.node != nullptr)) {
-       EraseImpl(p.bucket, static_cast<KeyNode*>(p.node), true);
-       is_new = false;
--    } else if (ResizeIfLoadIsOutOfRange(num_elements_ + 1)) {
-+    } else if (ResizeIfLoadIsOutOfRangeImpl(num_elements_ + 1, allow_shrink)) {
-       b = BucketNumber(node->key());  // bucket_number
-     }
-     InsertUnique(b, node);
-@@ -865,7 +877,7 @@ class KeyMapBase : public UntypedMapBase {
+@@ -794,6 +822,7 @@ class KeyMapBase : public UntypedMapBase {
+     ++num_elements_;
+     return is_new;
+   }
++  #endif
+ 
+   // Insert the given Node in bucket b.  If that would make bucket b too big,
+   // and bucket b is not a tree, create a tree for buckets b.
+@@ -865,7 +894,8 @@ class KeyMapBase : public UntypedMapBase {
    // destroy the expected big-O bounds for some operations. By having the
    // policy that sometimes we resize down as well as up, clients can easily
    // keep O(size()) = O(number of buckets) if they want that.
 -  bool ResizeIfLoadIsOutOfRange(size_type new_size) {
++  #if defined(__aarch64__)
 +  bool ResizeIfLoadIsOutOfRangeImpl(size_type new_size, bool allow_shrink) {
      const size_type hi_cutoff = CalculateHiCutoff(num_buckets_);
      const size_type lo_cutoff = hi_cutoff / 4;
      // We don't care how many elements are in trees.  If a lot are,
-@@ -878,7 +890,7 @@ class KeyMapBase : public UntypedMapBase {
+@@ -878,7 +908,7 @@ class KeyMapBase : public UntypedMapBase {
                     : num_buckets_ * 2);
          return true;
        }
@@ -656,10 +719,52 @@ index 867fea587..42df76585 100644
                                    num_buckets_ > kMinTableSize)) {
        size_type lg2_of_size_reduction_factor = 1;
        // It's possible we want to shrink a lot here... size() could even be 0.
-@@ -950,6 +962,21 @@ class KeyMapBase : public UntypedMapBase {
+@@ -898,6 +928,40 @@ class KeyMapBase : public UntypedMapBase {
+     }
+     return false;
+   }
++  #else
++  bool ResizeIfLoadIsOutOfRange(size_type new_size) {
++    const size_type hi_cutoff = CalculateHiCutoff(num_buckets_);
++    const size_type lo_cutoff = hi_cutoff / 4;
++    // We don't care how many elements are in trees.  If a lot are,
++    // we may resize even though there are many empty buckets.  In
++    // practice, this seems fine.
++    if (ABSL_PREDICT_FALSE(new_size > hi_cutoff)) {
++      if (num_buckets_ <= max_size() / 2) {
++        Resize(kMinTableSize > kGlobalEmptyTableSize * 2
++                   ? std::max(kMinTableSize, num_buckets_ * 2)
++                   : num_buckets_ * 2);
++        return true;
++      }
++    } else if (ABSL_PREDICT_FALSE(new_size <= lo_cutoff &&
++                                  num_buckets_ > kMinTableSize)) {
++      size_type lg2_of_size_reduction_factor = 1;
++      // It's possible we want to shrink a lot here... size() n't shrink so
++      // much that we would need to grow the table after a few inserts.
++      const size_type hypothetical_size = new_size * 5 / 4 + 1;
++      while ((hypothetical_size << (1 + lg2_of_size_reduction_factor)) <
++             hi_cutoff) {
++        ++lg2_of_size_reduction_factor;
++      }
++      size_type new_num_buckets = std::max<size_type>(
++          kMinTableSize, num_buckets_ >> lg2_of_size_reduction_factor);
++      if (new_num_buckets != num_buckets_) {
++        Resize(new_num_buckets);
++        return true;
++      }
++    }
++    return false;
++  }
++  #endif
+ 
+   // Interpret `head` as a linked list and insert all the nodes into `this`.
+   // REQUIRES: this->empty()
+@@ -950,6 +1014,23 @@ class KeyMapBase : public UntypedMapBase {
      AssertLoadFactor();
    }
  
++  #if defined(__aarch64__)
 +  void InternalReserve(size_t additional_count) {
 +    size_t expected_size = this->num_elements_ + additional_count;
 +    if (expected_size > CalculateHiCutoff(this->num_buckets_)) {
@@ -674,6 +779,7 @@ index 867fea587..42df76585 100644
 +      }
 +    }
 +  }
++  #endif
 +
    map_index_t BucketNumber(typename TS::ViewType k) const {
      return Hash(k, table_) & (num_buckets_ - 1);
@@ -730,13 +836,14 @@ index 30a472fd6..a72de7ab2 100644
      uint64_t varint;
      ptr = VarintParse(ptr, &varint);
 diff --git a/src/google/protobuf/string_block.h b/src/google/protobuf/string_block.h
-index 2bd1a1caf..e496ac5a4 100644
+index 2bd1a1caf..522a7e5bf 100644
 --- a/src/google/protobuf/string_block.h
 +++ b/src/google/protobuf/string_block.h
-@@ -128,6 +128,49 @@ inline StringBlock* StringBlock::Emplace(void* p, size_t n, StringBlock* next) {
+@@ -128,6 +128,51 @@ inline StringBlock* StringBlock::Emplace(void* p, size_t n, StringBlock* next) {
    return new (p) StringBlock(next, false, RoundedSize(count), next_size);
  }
  
++#if defined(__aarch64__)
 +struct SafeTlsBlockCache {
 +  struct Node {
 +    void* next;
@@ -779,49 +886,59 @@ index 2bd1a1caf..e496ac5a4 100644
 +};
 +
 +inline thread_local SafeTlsBlockCache safe_tls_string_block_cache;
++#endif
 +
  inline StringBlock* StringBlock::New(StringBlock* next) {
    // Compute required size, rounding down to a multiple of sizeof(std:string)
    // so that we can optimize the allocation path. I.e., we incur a (constant
-@@ -139,7 +182,12 @@ inline StringBlock* StringBlock::New(StringBlock* next) {
+@@ -139,7 +184,16 @@ inline StringBlock* StringBlock::New(StringBlock* next) {
      next_size = std::min<size_type>(size * 2, max_size());
    }
    size = RoundedSize(size);
--  void* p = ::operator new(size);
++#if defined(__aarch64__)
 +  void* p = safe_tls_string_block_cache.Pop(size);
 +  if (p != nullptr) {
 +    size = static_cast<SafeTlsBlockCache::Node*>(p)->size;
 +  } else {
 +    p = ::operator new(size);
 +  }  
++#else
+   void* p = ::operator new(size);
++#endif
    return new (p) StringBlock(next, true, size, next_size);
  }
  
-@@ -147,7 +195,7 @@ inline size_t StringBlock::Delete(StringBlock* block) {
+@@ -147,7 +201,11 @@ inline size_t StringBlock::Delete(StringBlock* block) {
    ABSL_DCHECK(block != nullptr);
    if (!block->heap_allocated_) return size_t{0};
    size_t size = block->allocated_size();
--  internal::SizedDelete(block, size);
++#if defined(__aarch64__)
 +  safe_tls_string_block_cache.Push(block, size);
++#else
+   internal::SizedDelete(block, size);
++#endif
    return size;
  }
  
 diff --git a/src/google/protobuf/string_block_test.cc b/src/google/protobuf/string_block_test.cc
-index f198975c4..8f3e5ddfe 100644
+index f198975c4..7f1dcc0c0 100644
 --- a/src/google/protobuf/string_block_test.cc
 +++ b/src/google/protobuf/string_block_test.cc
-@@ -13,6 +13,7 @@
+@@ -13,6 +13,9 @@
  #include <memory>
  #include <string>
  #include <vector>
++#if defined(__aarch64__)
 +#include <thread>
++#endif
  
  #include <gmock/gmock.h>
  #include <gtest/gtest.h>
-@@ -146,6 +147,82 @@ TEST(StringBlockTest, EmplaceMultipleBlocks) {
+@@ -146,6 +149,84 @@ TEST(StringBlockTest, EmplaceMultipleBlocks) {
    }
  }
  
++#if defined(__aarch64__)
 +TEST(StringBlockTest, TlsCacheReuseAndLifo) {
 +  auto clear_tls_cache = []() {
 +    while (safe_tls_string_block_cache.head != nullptr) {
@@ -897,6 +1014,7 @@ index f198975c4..8f3e5ddfe 100644
 +
 +  EXPECT_THAT(safe_tls_string_block_cache.count, Eq(main_thread_count));
 +}
++#endif
 +
  }  // namespace
  }  // namespace internal
