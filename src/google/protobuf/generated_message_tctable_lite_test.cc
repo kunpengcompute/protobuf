@@ -28,6 +28,7 @@
 #include "google/protobuf/parse_context.h"
 #include "google/protobuf/port.h"
 #include "google/protobuf/unittest.pb.h"
+#include "google/protobuf/map_unittest.pb.h"
 #include "google/protobuf/wire_format_lite.h"
 
 
@@ -986,7 +987,73 @@ TEST(GeneratedMessageTctableLiteTest,
   EXPECT_LE(proto.vals().Capacity(), 2048);
 }
 
+TEST(GeneratedMessageTctableLiteTest, RepeatedStringLookaheadAndAppendOptimization) {
+  proto2_unittest::TestAllTypes original_message;
+  
+  const int kItemCount = 2000;
+  const std::string kLongStringBase = "This_is_a_string_longer_than_15_bytes_to_defeat_SSO_";
 
+  for (int i = 0; i < kItemCount; ++i) {
+    original_message.add_repeated_string(kLongStringBase + std::to_string(i));
+  }
+
+  std::string serialized_data;
+  ASSERT_TRUE(original_message.SerializeToString(&serialized_data));
+
+  google::protobuf::Arena arena;
+  auto* parsed_message = 
+      google::protobuf::Arena::Create<proto2_unittest::TestAllTypes>(&arena);
+
+  ASSERT_TRUE(parsed_message->ParseFromString(serialized_data));
+
+  ASSERT_EQ(parsed_message->repeated_string_size(), kItemCount) 
+      << "Repeated field size mismatch after pre-allocation.";
+
+  for (int i = 0; i < kItemCount; ++i) {
+    std::string expected_value = kLongStringBase + std::to_string(i);
+    ASSERT_EQ(parsed_message->repeated_string(i), expected_value)
+        << "Data corruption detected at index " << i << " during AppendString evaluation.";
+  }
+
+  parsed_message->Clear();
+  ASSERT_TRUE(parsed_message->ParseFromString(serialized_data));
+  ASSERT_EQ(parsed_message->repeated_string_size(), kItemCount);
+  ASSERT_EQ(parsed_message->repeated_string(kItemCount - 1), 
+            kLongStringBase + std::to_string(kItemCount - 1));
+}
+
+TEST(GeneratedMessageTctableLiteTest, MapEntryClearAndAppendOptimization) {
+  proto2_unittest::TestMap msg1;
+  proto2_unittest::TestMap msg2;
+
+  const std::string kTargetKey = "collision_key";
+  const std::string kLongOldValue = "Long_String_Value_To_Defeat_SSO_1234567890";
+  const std::string kShortNewValue = "Short";
+
+  (*msg1.mutable_map_string_string())[kTargetKey] = kLongOldValue;
+  std::string data1 = msg1.SerializeAsString();
+
+  (*msg2.mutable_map_string_string())[kTargetKey] = kShortNewValue;
+  std::string data2 = msg2.SerializeAsString();
+
+  std::string combined_data = data1 + data2;
+
+  google::protobuf::Arena arena;
+  auto* parsed_message = google::protobuf::Arena::Create<proto2_unittest::TestMap>(&arena);
+
+  ASSERT_TRUE(parsed_message->ParseFromString(combined_data));
+  ASSERT_EQ(parsed_message->map_string_string_size(), 1);
+
+  std::string parsed_value = parsed_message->map_string_string().at(kTargetKey);
+  ASSERT_EQ(parsed_value, kShortNewValue);
+
+  parsed_message->Clear();
+
+  ASSERT_TRUE(parsed_message->ParseFromString(data2));
+
+  parsed_value = parsed_message->map_string_string().at(kTargetKey);
+  ASSERT_EQ(parsed_value, kShortNewValue);
+}
 
 }  // namespace internal
 }  // namespace protobuf
