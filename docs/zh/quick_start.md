@@ -1,24 +1,23 @@
 # 快速入门
 
-请在操作前确保完成 [编译安装](installation_guide.md)中的编译与安装流程。
-安装成功后，主要生成产物位于安装目录中（例如 `/path/to/install/pb-bin`）。
+执行本文档操作前确保已安装基于鲲鹏优化的Protocol Buffers，详细安装步骤请参见《[安装指南](./installation_guide.md)》。安装成功后，主要生成产物位于安装目录中（例如：`/path/to/install/pb-bin`）。
 
 ```text
 /path/to/install/pb-bin/
 ├── bin/
-│   └── protoc                    # Protocol Buffers 编译器
+│   └── protoc                    # Protocol Buffers编译器
 ├── include/
-│   └── google/protobuf/          # C++ 头文件
+│   └── google/protobuf/          # C++头文件
 ├── lib/ 或 lib64/
 │   ├── libprotobuf.so            # 完整运行时库
 │   ├── libprotobuf-lite.so       # 轻量运行时库
 │   ├── libprotoc.so              # 编译器库
-│   └── pkgconfig/                # pkg-config 配置
+│   └── pkgconfig/                # pkg-config配置
 ```
 
-## 创建 .proto 数据
+## 创建.proto数据
 
-创建一个 `.proto` 文件来定义你的数据结构。示例文件名称：`addressbook.proto`，文件内容如下：
+创建一个`.proto`文件来定义数据结构。示例文件名称`addressbook.proto`，文件内容如下。
 
 ```protobuf
 syntax = "proto3";
@@ -53,9 +52,9 @@ message AddressBook {
 }
 ```
 
-## 编译 .proto 文件
+## 编译.proto文件
 
-使用 `protoc` 编译器生成目标语言的代码。
+使用`protoc`编译器生成目标语言的代码。
 
 设置环境变量如下：
 
@@ -66,30 +65,43 @@ export PATH=/path/to/install/pb-bin/bin:$PATH
 export LD_LIBRARY_PATH=/path/to/install/pb-bin/lib:$LD_LIBRARY_PATH
 ```
 
-### 生成 C++ 代码
+### 生成C++代码
+
+使用如下目录生成C++代码。
 
 ```bash
 protoc --cpp_out=. addressbook.proto
 ```
 
 上述命令会生成以下两个文件：
+
 - `addressbook.pb.h`：头文件，包含类声明
 - `addressbook.pb.cc`：实现文件，包含类定义
 
 ### 生成其他语言代码
+
+支持以下语言的代码生成。
+
 - Java
+
   ```bash
   protoc --java_out=. addressbook.proto
   ```
+
 - Python
+
   ```bash
   protoc --python_out=. addressbook.proto
   ```
-- Go（需要安装 protoc-gen-go 插件）
+
+- Go（需要安装protoc-gen-go插件）
+
   ```bash
   protoc --go_out=. addressbook.proto
   ```
+
 - C#
+
   ```bash
   protoc --csharp_out=. addressbook.proto
   ```
@@ -97,6 +109,8 @@ protoc --cpp_out=. addressbook.proto
 ## 使用protoc生成的代码
 
 ### C++编解码示例代码
+
+C++编解码示例代码如下。
 
 ```cpp
 #include <iomanip>
@@ -176,7 +190,8 @@ int main() {
 ```
 
 ### 编译和运行
-1. 编译（假设安装在 /path/to/install/pb-bin目录）。
+
+1. 编译（假设安装在/path/to/install/pb-bin目录）。
 
    ```bash
    export PKG_CONFIG_PATH=/path/to/install/pb-bin/lib64/pkgconfig:$PKG_CONFIG_PATH
@@ -185,6 +200,7 @@ int main() {
        $(pkg-config --libs protobuf) \
        -o example
    ```
+
 2. 运行。
 
    ```bash
