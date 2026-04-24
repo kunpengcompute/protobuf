@@ -95,7 +95,7 @@ protobuf/
 
 ## 快速入门
 
-安装Protobuf后如何快速上手使用Protobuf请参见《 [快速入门](docs/zh/quick_start.md)》。
+安装Protobuf后如何快速上手使用Protobuf请参见《[快速入门](docs/zh/quick_start.md)》。
 
 ## 文档
 
