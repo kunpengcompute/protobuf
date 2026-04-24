@@ -1,15 +1,15 @@
 # 安装指南
 
-本文档提供 Protocol Buffers 优化版本的详细编译安装步骤。
+本文档提供基于鲲鹏优化的Protocol Buffers的详细编译安装步骤。
 
 ## 环境要求
 
 | 软件 | 版本要求 | 说明 |
-|------|----------|------|
-| 操作系统 | openEuler 22.03 LTS SP3 | Linux 发行版 |
+| ------ | ---------- | ------ |
+| 操作系统 | openEuler 22.03 LTS SP3 | Linux发行版 |
 | 编译器 | clang 16.0.6+<br>GCC 9.0+ | 支持 C++17 标准 |
-| CMake | 3.15 或更高版本 | 构建工具 |
-| Git | 2.0 或更高版本 | 版本控制 |
+| CMake | 3.15或更高版本 | 构建工具 |
+| Git | 2.0或更高版本 | 版本控制 |
 | Bazel | 7.0+（可选） | 替代构建系统 |
 
 ## 获取代码
@@ -21,23 +21,24 @@ git clone --recursive -b dev_forBD_v4.25.8_SVE2 https://gitcode.com/boostkit/pro
 cd protobuf
 ```
 
->说明：如果代码获取时未使用 `git clone --recursive` 拉取依赖，则需要下载Abseil C++库到指定目录，确保 `third_party/abseil-cpp` 目录包含 Abseil 的所有源文件。
->
->- 方法一：使用git子模块（推荐）
->```bash
->cd protobuf
->git submodule update --init --recursive
->```
->- 方法二：手动下载
->```bash
->cd protobuf
->mkdir -p third_party/abseil-cpp
->cd third_party/abseil-cpp
->wget https://github.com/abseil/abseil-cpp/archive/refs/tags/20240722.1.tar.gz
->tar -xzf 20240722.1.tar.gz --strip-components=1
->```
+如果获取代码时未使用 `git clone --recursive` 拉取依赖，则需要下载Abseil C++库到指定目录，确保 `third_party/abseil-cpp` 目录包含Abseil的所有源文件。
 
+- 方法一：使用git子模块（推荐）
 
+  ```bash
+  cd protobuf
+  git submodule update --init --recursive
+  ```
+
+- 方法二：手动下载
+
+  ```bash
+  cd protobuf
+  mkdir -p third_party/abseil-cpp
+  cd third_party/abseil-cpp
+  wget https://github.com/abseil/abseil-cpp/archive/refs/tags/20240722.1.tar.gz
+  tar -xzf 20240722.1.tar.gz --strip-components=1
+  ```
 
 ## 编译安装
 
@@ -65,12 +66,15 @@ cd protobuf
 
 3. 编译。
 
-  - 使用所有可用 CPU 核心并行编译
-    ```bash 
-    cmake --build . --parallel $(nproc)
-    ```
-   - 或指定核心数（例如 32 核）
-       ```bash 
+   - 使用所有可用CPU核心并行编译。
+     
+     ```bash
+     cmake --build . --parallel $(nproc)
+     ```
+
+   - 或指定核心数（例如32核）。
+
+      ```bash
       cmake --build . --parallel 32
       ```
 
@@ -80,7 +84,7 @@ cd protobuf
    cmake --install .
    ```
 
-5.  验证安装目录。
+5. 验证安装目录。
 
     ```bash
     cmake --install .
@@ -96,6 +100,7 @@ cd protobuf
     drwxr-xr-x.  5 user user  4096 Mar 20 12:19 include
     drwxr-xr-x.  4 user user 12288 Mar 20 12:19 lib64
     ```
+
 6. 查看动态库。
 
    ```bash
@@ -116,17 +121,17 @@ cd protobuf
 ### CMake 常用选项
 
 | 选项 | 默认值 | 说明 |
-|------|--------|------|
+| ------ | -------- | ------ |
 | `-Dprotobuf_BUILD_TESTS` | OFF | 是否编译测试 |
-| `-Dprotobuf_BUILD_SHARED_LIBS` | OFF | 是否构建共享库（推荐 ON） |
-| `-DCMAKE_CXX_STANDARD` | 17 | C++ 标准（推荐 17） |
+| `-Dprotobuf_BUILD_SHARED_LIBS` | OFF | 是否构建共享库（推荐ON） |
+| `-DCMAKE_CXX_STANDARD` | 17 | C++ 标准（推荐17） |
 | `-DCMAKE_BUILD_TYPE` | Release | 构建类型（Release/Debug） |
-| `-DCMAKE_CXX_FLAGS` | - | 额外编译标志（推荐 -O3） |
+| `-DCMAKE_CXX_FLAGS` | - | 额外编译标志（推荐-O3） |
 | `-Dprotobuf_BUILD_CONFORMANCE` | OFF | 是否构建一致性测试 |
 
 ### 性能优化编译标志
 
-针对 ARM 架构（鲲鹏处理器）的推荐编译标志。
+针对ARM架构（鲲鹏处理器）的推荐编译标志。
 
 ```bash
 cmake -DCMAKE_CXX_FLAGS="-O3 -march=armv9.2-a+crc+sve+sve2+sve2-bitperm -mtune=native" ..
@@ -138,29 +143,30 @@ cmake -DCMAKE_CXX_FLAGS="-O3 -march=armv9.2-a+crc+sve+sve2+sve2-bitperm -flto=th
       ..
 ```
 
-
 ## 运行测试
 
-进入测试目录。
+1. 进入测试目录。
 
-```
-cd build
-```
-以下三种方式任选其一执行即可。
-- 运行所有测试
+   ```shell
+   cd build
+   ```
 
-  ```
-  ctest --verbose
-  ```
+2. 以下三种方式任选其一执行即可。
 
-- 运行特定测试
+   - 运行所有测试。
 
-  ```
-  ctest -R message_test
-  ```
+    ```shell
+    ctest --verbose
+    ```
 
-- 并行运行测试
+   - 运行特定测试。
 
-  ```
-  ctest --parallel $(nproc)
-  ```
+   ```shell
+   ctest -R message_test
+   ```
+
+   - 并行运行测试。
+
+   ```shell
+   ctest --parallel $(nproc)
+   ```
