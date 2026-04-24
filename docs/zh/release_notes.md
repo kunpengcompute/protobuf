@@ -24,4 +24,4 @@
 
 |特性描述|更新说明|
 |--|--|
-|新增 varint 编解码优化|针对 `coded_stream.h` 与 `parse_context.h` 的varint编解码路径进行循环展开与向量化优化，提升packed数组编解码性能。|
+|新增varint编解码优化|针对 `coded_stream.h` 与 `parse_context.h` 的varint编解码路径进行循环展开与向量化优化，提升packed数组编解码性能。|
