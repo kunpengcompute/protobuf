@@ -13,7 +13,9 @@
 #include <memory>
 #include <string>
 #include <vector>
+#if defined(__aarch64__)
 #include <thread>
+#endif
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -147,6 +149,7 @@ TEST(StringBlockTest, EmplaceMultipleBlocks) {
   }
 }
 
+#if defined(__aarch64__)
 TEST(StringBlockTest, TlsCacheReuseAndLifo) {
   auto clear_tls_cache = []() {
     while (safe_tls_string_block_cache.head != nullptr) {
@@ -222,6 +225,7 @@ TEST(StringBlockTest, TlsCacheThreadIsolation) {
 
   EXPECT_THAT(safe_tls_string_block_cache.count, Eq(main_thread_count));
 }
+#endif
 
 }  // namespace
 }  // namespace internal

@@ -21,7 +21,9 @@
 #include "google/protobuf/io/coded_stream.h"
 #include "google/protobuf/parse_context.h"
 #include "google/protobuf/unittest.pb.h"
+#if defined(__aarch64__)
 #include "google/protobuf/map_unittest.pb.h"
+#endif
 #include "google/protobuf/wire_format_lite.h"
 
 
@@ -947,6 +949,7 @@ TEST(GeneratedMessageTctableLiteTest,
   EXPECT_LE(proto.vals().Capacity(), 2048);
 }
 
+#if defined(__aarch64__)
 TEST(GeneratedMessageTctableLiteTest, RepeatedStringLookaheadAndAppendOptimization) {
   protobuf_unittest::TestAllTypes original_message;
   
@@ -1014,6 +1017,7 @@ TEST(GeneratedMessageTctableLiteTest, MapEntryClearAndAppendOptimization) {
   parsed_value = parsed_message->map_string_string().at(kTargetKey);
   ASSERT_EQ(parsed_value, kShortNewValue);
 }
+#endif
 
 
 }  // namespace internal

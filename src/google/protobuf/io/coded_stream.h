@@ -1121,6 +1121,7 @@ class PROTOBUF_EXPORT EpsCopyOutputStream {
   }
 #endif // __ARM_FEATURE_SVE2
 
+  #if defined(__aarch64__)
   //  EncodeBytes finction encodes an uint value by selecting 7 bits from lsb and adding the msb in each loop
   //  Varints in different length need different loop counts
   //  The fixed loop will be unrolled by compiler automantically
@@ -1185,6 +1186,7 @@ class PROTOBUF_EXPORT EpsCopyOutputStream {
     }
     return ptr;
   }
+  #endif
 
   PROTOBUF_ALWAYS_INLINE static uint8_t* UnsafeWriteSize(uint32_t value,
                                                          uint8_t* ptr) {
