@@ -67,7 +67,7 @@ cd protobuf
 3. 编译。
 
    - 使用所有可用CPU核心并行编译。
-     
+   
      ```bash
      cmake --build . --parallel $(nproc)
      ```
@@ -87,7 +87,7 @@ cd protobuf
 5. 验证安装目录。
 
     ```bash
-    cmake --install .
+    ls -la ${PROTOBUF_INSTALL_DIR}
     ```
 
     回显结果如下：
