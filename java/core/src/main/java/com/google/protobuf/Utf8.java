@@ -41,6 +41,7 @@ import static java.lang.Character.MIN_SURROGATE;
 import static java.lang.Character.isSurrogatePair;
 import static java.lang.Character.toCodePoint;
 
+import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 
 /**
@@ -378,6 +379,18 @@ final class Utf8 {
   /** A processor of UTF-8 strings, providing methods for checking validity and encoding. */
   // TODO(nathanmittler): Add support for Memory/MemoryBlock on Android.
   abstract static class Processor {
+        public static Boolean isUseUTFConversionIntrinsics = false;
+
+        static {
+            try {
+                Field field = String.class.getDeclaredField("UTF_CONVERSION_INTRINSICS");
+                field.setAccessible(true);
+                isUseUTFConversionIntrinsics = (Boolean) field.get(null);
+            } catch (NoSuchFieldException | IllegalAccessException e) {
+                isUseUTFConversionIntrinsics = false;
+            }
+
+        }
     /**
      * Returns {@code true} if the given byte array slice is a well-formed UTF-8 byte sequence. The
      * range of bytes to be checked extends from index {@code index}, inclusive, to {@code limit},
@@ -954,6 +967,9 @@ final class Utf8 {
 
     @Override
     String decodeUtf8(byte[] bytes, int index, int size) throws InvalidProtocolBufferException {
+            if (isUseUTFConversionIntrinsics) {
+                return new String(bytes, index, size);
+            }
       // Bitwise OR combines the sign bits so any negative value fails the check.
       if ((index | size | bytes.length - index - size) < 0) {
         throw new ArrayIndexOutOfBoundsException(
@@ -1366,6 +1382,9 @@ final class Utf8 {
 
     @Override
     String decodeUtf8(byte[] bytes, int index, int size) throws InvalidProtocolBufferException {
+            if (isUseUTFConversionIntrinsics) {
+                return new String(bytes, index, size);
+            }
       if ((index | size | bytes.length - index - size) < 0) {
         throw new ArrayIndexOutOfBoundsException(
             String.format("buffer length=%d, index=%d, size=%d", bytes.length, index, size));
