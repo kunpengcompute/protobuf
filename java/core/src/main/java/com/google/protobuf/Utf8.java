@@ -380,7 +380,6 @@ final class Utf8 {
   // TODO(nathanmittler): Add support for Memory/MemoryBlock on Android.
   abstract static class Processor {
         public static Boolean isUseUTFConversionIntrinsics = false;
-
         static {
             try {
                 Field field = String.class.getDeclaredField("UTF_CONVERSION_INTRINSICS");
