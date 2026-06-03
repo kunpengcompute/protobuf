@@ -1,30 +1,31 @@
-# 快速入门
+# Quick Start
 
-执行本文档操作前确保已安装基于鲲鹏优化的Protocol Buffers，详细安装步骤请参见《[安装指南](./installation_guide.md)》。安装成功后，主要生成产物位于安装目录中（例如：`/path/to/install/pb-bin`）。
+Before performing operations, ensure that the compilation and installation process described in [Installation Guide](installation_guide.md) has been completed.
+After the installation is successful, the generated files are stored in the installation directory, for example, `/path/to/install/pb-bin`.
 
 ```text
 /path/to/install/pb-bin/
 ├── bin/
-│   └── protoc                    # Protocol Buffers编译器
+│   └── protoc                    # Protocol Buffers compiler
 ├── include/
-│   └── google/protobuf/          # C++头文件
-├── lib/ 或 lib64/
-│   ├── libprotobuf.so            # 完整运行时库
-│   ├── libprotobuf-lite.so       # 轻量运行时库
-│   ├── libprotoc.so              # 编译器库
-│   └── pkgconfig/                # pkg-config配置
+│   └── google/protobuf/          # C++ header file
+├── lib/ or lib64/
+│   ├── libprotobuf.so            # Complete runtime library
+│   ├── libprotobuf-lite.so       # Lightweight runtime library
+│   ├── libprotoc.so              # Compiler library
+│   └── pkgconfig/                # pkg-config
 ```
 
-## 创建.proto数据
+## Creating .proto Data
 
-创建一个`.proto`文件来定义数据结构。示例文件名称`addressbook.proto`，文件内容如下。
+Create a `.proto` file to define your data structure. For example, the file name is `addressbook.proto`, and the file content is as follows:
 
 ```protobuf
 syntax = "proto3";
 
 package tutorial;
 
-// 人员信息
+// Personnel information
 message Person {
   string name = 1;
   int32 id = 2;
@@ -46,41 +47,37 @@ message Person {
   repeated PhoneNumber phones = 4;
 }
 
-// 地址簿
+// Address book
 message AddressBook {
   repeated Person people = 1;
 }
 ```
 
-## 编译.proto文件
+## Compiling the .proto File
 
-使用`protoc`编译器生成目标语言的代码。
+Use the `protoc` compiler to generate code in the target language.
 
-设置环境变量如下：
+Set the environment variables as follows:
 
 ```bash
-# 设置 protoc 路径（假设安装在 /path/to/install/pb-bin）
+# Set the path for protoc (assuming it is installed in /path/to/install/pb-bin).
 export PATH=/path/to/install/pb-bin/bin:$PATH
-# 注意根据实际路径lib/lib64修改
+# Modify lib or lib64 according to the actual path.
 export LD_LIBRARY_PATH=/path/to/install/pb-bin/lib:$LD_LIBRARY_PATH
 ```
 
-### 生成C++代码
-
-使用如下目录生成C++代码。
+### Generating C++ Code
 
 ```bash
 protoc --cpp_out=. addressbook.proto
 ```
 
-上述命令会生成以下两个文件：
+The preceding command generates the following two files:
 
-- `addressbook.pb.h`：头文件，包含类声明
-- `addressbook.pb.cc`：实现文件，包含类定义
+- `addressbook.pb.h`: header file, containing class declarations
+- `addressbook.pb.cc`: implementation file, containing class definitions
 
-### 生成其他语言代码
-
-支持以下语言的代码生成。
+### Generating Code in Other Languages
 
 - Java
 
@@ -94,7 +91,7 @@ protoc --cpp_out=. addressbook.proto
   protoc --python_out=. addressbook.proto
   ```
 
-- Go（需要安装protoc-gen-go插件）
+- Go (The protoc-gen-go plugin must be installed.)
 
   ```bash
   protoc --go_out=. addressbook.proto
@@ -106,11 +103,9 @@ protoc --cpp_out=. addressbook.proto
   protoc --csharp_out=. addressbook.proto
   ```
   
-## 使用protoc生成的代码
+## Code Generated Using protoc
 
-### C++编解码示例代码
-
-C++编解码示例代码如下。
+### C++ Encoding and Decoding Sample Code
 
 ```cpp
 #include <iomanip>
@@ -135,10 +130,10 @@ static void DumpHex(const std::string& data) {
 }
 
 int main() {
-    // 构造数据
+    // Construct data.
     tutorial::AddressBook address_book;
     tutorial::Person* person = address_book.add_people();
-    person->set_name("张三");
+    person->set_name("Jack");
     person->set_id(1234);
     person->set_email("zhangsan@example.com");
     tutorial::Person::PhoneNumber* phone = person->add_phones();
@@ -148,40 +143,40 @@ int main() {
     person->add_scores(150);
     person->add_scores(300);
 
-    // 序列化到文件
+    // Serialize to a file.
     std::fstream output("addressbook.bin",
                         std::ios::out | std::ios::binary);
     if (!address_book.SerializeToOstream(&output)) {
-        std::cerr << "序列化失败" << std::endl;
+        std::cerr << "Serialization failed" << std::endl;
         return -1;
     }
     output.close();
 
-    // 读取文件内容并打印十六进制
+    // Read the file content and print it in hexadecimal format.
     std::ifstream bin_in("addressbook.bin", std::ios::in | std::ios::binary);
     std::string data((std::istreambuf_iterator<char>(bin_in)),
                      std::istreambuf_iterator<char>());
     DumpHex(data);
 
-    // 从文件反序列化
+    // Deserialize from the file.
     tutorial::AddressBook parsed;
     std::fstream input("addressbook.bin",
                        std::ios::in | std::ios::binary);
     if (!parsed.ParseFromIstream(&input)) {
-        std::cerr << "反序列化失败" << std::endl;
+        std::cerr << "Deserialization failed" << std::endl;
         return -1;
     }
 
-    // 读取数据
+    // Read data.
     for (int i = 0; i < parsed.people_size(); i++) {
         const tutorial::Person& p = parsed.people(i);
-        std::cout << "姓名: " << p.name() << std::endl;
+        std::cout << "Name: " << p.name() << std::endl;
         std::cout << "ID: " << p.id() << std::endl;
-        std::cout << "邮箱: " << p.email() << std::endl;
+        std::cout << "Email: " << p.email() << std::endl;
         for (int j = 0; j < p.phones_size(); j++) {
             const tutorial::Person::PhoneNumber& pn = p.phones(j);
-            std::cout << "电话: " << pn.number()
-                      << " (类型: " << pn.type() << ")" << std::endl;
+            std::cout << "Phone_number: " << pn.number()
+                      << " (Type: " << pn.type() << ")" << std::endl;
         }
     }
 
@@ -189,9 +184,9 @@ int main() {
 }
 ```
 
-### 编译和运行
+### Compiling and Running
 
-1. 编译（假设安装在/path/to/install/pb-bin目录）。
+1. Compile the code (assuming it is installed in /path/to/install/pb-bin).
 
    ```bash
    export PKG_CONFIG_PATH=/path/to/install/pb-bin/lib64/pkgconfig:$PKG_CONFIG_PATH
@@ -201,44 +196,44 @@ int main() {
        -o example
    ```
 
-2. 运行。
+2. Run the code.
 
    ```bash
    ./example
    ```
 
-## 常用操作
+## Common Operations
 
-### Json转换
+### JSON Conversion
 
-Protobuf支持与Json格式互相转换。
+Protobuf supports conversion to and from JSON.
 
 ```cpp
 #include <google/protobuf/util/json_util.h>
 
-// Protobuf转Json
+// Convert Protobuf to JSON.
 std::string json_string;
 google::protobuf::util::MessageToJsonString(address_book, &json_string);
 std::cout << json_string << std::endl;
 
-// Json转Protobuf
+// Convert JSON to Protobuf.
 tutorial::AddressBook address_book2;
 google::protobuf::util::JsonStringToMessage(json_string, &address_book2);
 ```
 
-### 使用Arena内存池
+### Using the Arena Memory Pool
 
-Arena可以提高性能，减少内存碎片，使用方法如下。
+Arena can improve performance and reduce memory fragments. The usage is as follows:
 
 ```cpp
-// Arena 销毁时自动释放所有对象
+// All objects are automatically released when the arena memory pool is destroyed.
 #include <google/protobuf/arena.h>
 
 google::protobuf::Arena arena;
 
-// 在 Arena 中创建消息
+// Create a message in the arena memory pool.
 tutorial::Person* person =
     google::protobuf::Arena::CreateMessage<tutorial::Person>(&arena);
-person->set_name("李四");
+person->set_name("Jerry");
 person->set_id(5678);
 ```
