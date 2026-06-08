@@ -206,39 +206,3 @@ int main() {
    ```bash
    ./example
    ```
-
-## 常用操作
-
-### Json转换
-
-Protobuf支持与Json格式互相转换。
-
-```cpp
-#include <google/protobuf/util/json_util.h>
-
-// Protobuf转Json
-std::string json_string;
-google::protobuf::util::MessageToJsonString(address_book, &json_string);
-std::cout << json_string << std::endl;
-
-// Json转Protobuf
-tutorial::AddressBook address_book2;
-google::protobuf::util::JsonStringToMessage(json_string, &address_book2);
-```
-
-### 使用Arena内存池
-
-Arena可以提高性能，减少内存碎片，使用方法如下。
-
-```cpp
-// Arena 销毁时自动释放所有对象
-#include <google/protobuf/arena.h>
-
-google::protobuf::Arena arena;
-
-// 在 Arena 中创建消息
-tutorial::Person* person =
-    google::protobuf::Arena::CreateMessage<tutorial::Person>(&arena);
-person->set_name("李四");
-person->set_id(5678);
-```

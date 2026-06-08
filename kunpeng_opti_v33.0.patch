@@ -43,16 +43,21 @@ index 170205f42..f6e93f118 100644
    return ptr;
  }
 diff --git a/src/google/protobuf/arenastring_unittest.cc b/src/google/protobuf/arenastring_unittest.cc
-index 2afdd9d57..2d30289c0 100644
+index 2afdd9d57..1405b1320 100644
 --- a/src/google/protobuf/arenastring_unittest.cc
 +++ b/src/google/protobuf/arenastring_unittest.cc
-@@ -204,6 +204,33 @@ TEST_P(SingleArena, CopyConstructLong) {
+@@ -204,6 +204,34 @@ TEST_P(SingleArena, CopyConstructLong) {
    field.Destroy();
  }
  
 +#if defined(__aarch64__)
 +TEST_P(SingleArena, ReadArenaStringAppendOptimization) {
 +  auto arena = GetArena();
++  // ReadArenaString requires non-null arena (DCHECK in arenastring.cc:274)
++  if (!arena) {
++    GTEST_SKIP() << "ReadArenaString requires non-null arena";
++  }
++
 +  ArenaStringPtr field;
 +  field.InitDefault();
 +
@@ -70,10 +75,6 @@ index 2afdd9d57..2d30289c0 100644
 +
 +  ASSERT_NE(ptr, nullptr);
 +  EXPECT_EQ(field.Get(), kLongString);
-+
-+  if (!arena) {
-+    field.Destroy();
-+  }
 +}
 +#endif
 +
@@ -653,6 +654,27 @@ index 19597d151..99cccbcce 100644
    PROTOBUF_ALWAYS_INLINE static uint8_t* UnsafeWriteSize(uint32_t value,
                                                           uint8_t* ptr) {
      while (ABSL_PREDICT_FALSE(value >= 0x80)) {
+diff --git a/src/google/protobuf/lite_unittest.cc b/src/google/protobuf/lite_unittest.cc
+index ba9d33bf5..2ae0a78a2 100644
+--- a/src/google/protobuf/lite_unittest.cc
++++ b/src/google/protobuf/lite_unittest.cc
+@@ -107,6 +107,16 @@ void SetSomeTypesInEmptyMessageUnknownFields(
+   empty_message->ParseFromString(data);
+ }
+ 
++TEST(AppendPartialToStringTest, PreservesPrefix) {
++  unittest::TestAllTypesLite message;
++  TestUtilLite::SetAllFields(&message);
++
++  std::string serialized = message.SerializeAsString();
++  std::string output = "prefix:";
++  ASSERT_TRUE(message.AppendPartialToString(&output));
++  EXPECT_EQ(absl::StrCat("prefix:", serialized), output);
++}
++
+ TEST(ParseVarintTest, Varint32) {
+   auto test_value = [](uint32_t value, int varint_length) {
+     uint8_t buffer[10] = {0};
 diff --git a/src/google/protobuf/map.h b/src/google/protobuf/map.h
 index 867fea587..b412d17e5 100644
 --- a/src/google/protobuf/map.h
@@ -784,6 +806,36 @@ index 867fea587..b412d17e5 100644
    map_index_t BucketNumber(typename TS::ViewType k) const {
      return Hash(k, table_) & (num_buckets_ - 1);
    }
+diff --git a/src/google/protobuf/message_lite.cc b/src/google/protobuf/message_lite.cc
+index c37e661cf..e29d1386c 100644
+--- a/src/google/protobuf/message_lite.cc
++++ b/src/google/protobuf/message_lite.cc
+@@ -603,11 +603,23 @@ bool MessageLite::AppendPartialToString(std::string* output) const {
+     return false;
+   }
+ 
+-  absl::strings_internal::STLStringResizeUninitializedAmortized(
+-      output, old_size + byte_size);
++  const size_t new_size = old_size + byte_size;
++#if defined(__cpp_lib_string_resize_and_overwrite) && \
++    __cpp_lib_string_resize_and_overwrite >= 202110L
++  output->resize_and_overwrite(
++      new_size, [this, old_size, byte_size](char* data, size_t /*size*/) {
++        SerializeToArrayImpl(*this,
++                             reinterpret_cast<uint8_t*>(data) + old_size,
++                             byte_size);
++        return old_size + byte_size;
++      });
++#else
++  absl::strings_internal::STLStringResizeUninitializedAmortized(output,
++                                                                new_size);
+   uint8_t* start =
+       reinterpret_cast<uint8_t*>(io::mutable_string_data(output) + old_size);
+   SerializeToArrayImpl(*this, start, byte_size);
++#endif
+   return true;
+ }
+ 
 diff --git a/src/google/protobuf/parse_context.h b/src/google/protobuf/parse_context.h
 index 30a472fd6..a72de7ab2 100644
 --- a/src/google/protobuf/parse_context.h
