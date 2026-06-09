@@ -42,8 +42,8 @@
 
 |特性描述|更新说明|
 |--|--|
-|Map和StringBlock解析优化|通过预判连续元素数量（lookahead）和预分配容量，减少解析过程中的内存重分配次数。针对Map字段，使用 `InsertNodeWithoutResizeCheck` 跳过冗余的扩容检查；针对Repeated String字段，引入 `AppendString` 替代 `ReadString`，并启用StringBlock TLS缓存，降低内存分配开销。|
-|C++23 resize_and_overwrite支持|在 `AppendPartialToString` 中使用C++23标准的 `resize_and_overwrite` 方法，避免不必要的零初始化，提升序列化性能。当编译器支持该特性时自动启用。|
+|Map和StringBlock解析优化|通过预判连续元素数量（lookahead）和预分配容量，减少解析过程中的内存重分配次数。针对Map字段，使用`InsertNodeWithoutResizeCheck`跳过冗余的扩容检查；针对Repeated String字段，引入`AppendString`替代`ReadString`，并启用StringBlock TLS缓存，降低内存分配开销。|
+|C++23 resize_and_overwrite支持|在`AppendPartialToString`中使用C++23标准的`resize_and_overwrite`方法，避免不必要的零初始化，提升序列化性能。当编译器支持该特性时自动启用。|
 
 ### V1.0.0
 
@@ -51,7 +51,7 @@
 
 |特性描述|更新说明|
 |--|--|
-|新增varint编解码优化|针对 `coded_stream.h` 与 `parse_context.h` 的varint编解码路径进行循环展开与向量化优化，提升packed数组编解码性能。|
+|新增varint编解码优化|针对`coded_stream.h`与`parse_context.h`的varint编解码路径进行循环展开与向量化优化，提升packed数组编解码性能。|
 
 ## 版本配套文档
 

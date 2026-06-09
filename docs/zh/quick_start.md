@@ -1,6 +1,6 @@
 # 快速入门
 
-执行本文档操作前确保已安装基于鲲鹏优化的Protocol Buffers，详细安装步骤请参见《[安装指南](./installation_guide.md)》。安装成功后，主要生成产物位于安装目录中（例如：`/path/to/install/pb-bin`）。
+执行本文档操作前确保已安装基于鲲鹏优化的Protocol Buffers，详细安装步骤请参见《[安装指南](./installation_guide.md)》。安装成功后，主要生成产物位于安装目录中（例如`/path/to/install/pb-bin`）。
 
 ```text
 /path/to/install/pb-bin/
@@ -56,12 +56,12 @@ message AddressBook {
 
 使用`protoc`编译器生成目标语言的代码。
 
-设置环境变量如下：
+### 设置环境变量
+
+设置protoc的bin和lib路径（假设安装在`/path/to/install/pb-bin`，请根据实际路径修改）。
 
 ```bash
-# 设置 protoc 路径（假设安装在 /path/to/install/pb-bin）
 export PATH=/path/to/install/pb-bin/bin:$PATH
-# 注意根据实际路径lib/lib64修改
 export LD_LIBRARY_PATH=/path/to/install/pb-bin/lib:$LD_LIBRARY_PATH
 ```
 
@@ -109,8 +109,6 @@ protoc --cpp_out=. addressbook.proto
 ## 使用protoc生成的代码
 
 ### C++编解码示例代码
-
-C++编解码示例代码如下。
 
 ```cpp
 #include <iomanip>
