@@ -603,11 +603,23 @@ bool MessageLite::AppendPartialToString(std::string* output) const {
     return false;
   }
 
-  absl::strings_internal::STLStringResizeUninitializedAmortized(
-      output, old_size + byte_size);
+  const size_t new_size = old_size + byte_size;
+#if defined(__cpp_lib_string_resize_and_overwrite) && \
+    __cpp_lib_string_resize_and_overwrite >= 202110L
+  output->resize_and_overwrite(
+      new_size, [this, old_size, byte_size](char* data, size_t /*size*/) {
+        SerializeToArrayImpl(*this,
+                             reinterpret_cast<uint8_t*>(data) + old_size,
+                             byte_size);
+        return old_size + byte_size;
+      });
+#else
+  absl::strings_internal::STLStringResizeUninitializedAmortized(output,
+                                                                new_size);
   uint8_t* start =
       reinterpret_cast<uint8_t*>(io::mutable_string_data(output) + old_size);
   SerializeToArrayImpl(*this, start, byte_size);
+#endif
   return true;
 }
 

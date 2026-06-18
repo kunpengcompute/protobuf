@@ -107,6 +107,16 @@ void SetSomeTypesInEmptyMessageUnknownFields(
   empty_message->ParseFromString(data);
 }
 
+TEST(AppendPartialToStringTest, PreservesPrefix) {
+  unittest::TestAllTypesLite message;
+  TestUtilLite::SetAllFields(&message);
+
+  std::string serialized = message.SerializeAsString();
+  std::string output = "prefix:";
+  ASSERT_TRUE(message.AppendPartialToString(&output));
+  EXPECT_EQ(absl::StrCat("prefix:", serialized), output);
+}
+
 TEST(ParseVarintTest, Varint32) {
   auto test_value = [](uint32_t value, int varint_length) {
     uint8_t buffer[10] = {0};

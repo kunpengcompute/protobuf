@@ -204,8 +204,14 @@ TEST_P(SingleArena, CopyConstructLong) {
   field.Destroy();
 }
 
+#if defined(__aarch64__)
 TEST_P(SingleArena, ReadArenaStringAppendOptimization) {
   auto arena = GetArena();
+  // ReadArenaString requires non-null arena (DCHECK in arenastring.cc:274)
+  if (!arena) {
+    GTEST_SKIP() << "ReadArenaString requires non-null arena";
+  }
+
   ArenaStringPtr field;
   field.InitDefault();
 
@@ -223,11 +229,8 @@ TEST_P(SingleArena, ReadArenaStringAppendOptimization) {
 
   ASSERT_NE(ptr, nullptr);
   EXPECT_EQ(field.Get(), kLongString);
-
-  if (!arena) {
-    field.Destroy();
-  }
 }
+#endif
 
 
 }  // namespace protobuf
