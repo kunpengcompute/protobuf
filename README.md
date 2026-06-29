@@ -2,45 +2,141 @@
 
 ## 最新消息
 
-- [2026.03.30]：发布varint packed编解码优化，并使能SIMDUTF校验算法。
+- [2026.06.30]：发布V1.0.1版本，新增Map和StringBlock解析优化、C++23 resize_and_overwrite特性支持。
+- [2026.03.30]：发布V1.0.0版本，新增varint packed编解码优化，并使能SIMDUTF校验算法。
 
 ## 项目简介
 
 ### 简介
 
-Protocol Buffers（简称Protobuf）是Google开源的**语言中立、平台中立、可扩展**的结构化数据序列化机制，用于在分布式系统间实现高效的数据交换与存储，同时支持与RPC框架（如gRPC）无缝集成。其核心优势为序列化后体积小、解析速度快、支持多版本协议兼容演进，且提供了跨C++/Java/Python/Go等多语言的运行时库。
+Protocol Buffers（简称Protobuf）是Google开源的**语言中立、平台中立、可扩展**的结构化数据序列化机制，用于在分布式系统间实现高效的数据交换与存储，同时支持与RPC框架（如bRPC/gRPC）无缝集成。其核心优势为序列化后体积小、解析速度快、支持多版本协议兼容演进，且提供了跨C++/Java/Python/Go等多语言的运行时库。
 
 ### 核心模块
 
 Protobuf整体分为**编译器模块**（`protoc`）和**运行时模块**（各语言Runtime）两大核心，其内部模块划分如下：
 
-- **描述符模块**：负责定义消息/枚举/服务的元数据结构（如 `Descriptor`/`FieldDescriptor`）；
-- **消息核心模块**：提供消息的序列化、反序列化、字段访问等基础能力；
-- **I/O 编解码模块**：实现二进制流的读写与编码（如变长整数、打包数组）；
-- **工具类模块**：提供JSON转换、消息比对、时间类型处理等辅助能力；
-- **编译器插件模块**：支持自定义代码生成逻辑，适配不同语言的代码输出；
-- **Editions 特性模块**：实现 `edition` 协议版本（2023/2024）的语法解析与特性控制（如字段默认值、重复字段编码）。
+- **描述符模块**：负责定义消息/枚举/服务的元数据结构（如`Descriptor`/`FieldDescriptor`）。
+- **消息核心模块**：提供消息的序列化、反序列化、字段访问等基础能力。
+- **I/O 编解码模块**：实现二进制流的读写与编码（如变长整数、打包数组）。
+- **工具类模块**：提供JSON转换、消息比对、时间类型处理等辅助能力。
+- **编译器插件模块**：支持自定义代码生成逻辑，适配不同语言的代码输出。
+- **Editions 特性模块**：实现`edition`协议版本（2023/2024）的语法解析与特性控制（如字段默认值、重复字段编码）。
 
 ### 对外核心接口函数
 
 以下为Protobuf（以C++为例）对外的核心接口函数，覆盖消息操作、I/O编解码、工具类等核心能力。
 
-| 模块分类 | 接口函数/方法 | 功能描述 |
-| -- | -- | -- |
-| 消息基础操作 | `MessageLite::SerializeToString` | 将消息序列化为二进制字符串。 |
-| 消息基础操作 | `MessageLite::ParseFromString` | 从二进制字符串反序列化消息。 |
-| 消息基础操作 | `Message::CopyFrom` | 从另一个同类型消息复制字段数据。 |
-| 消息基础操作 | `Message::Clear` | 清空消息所有字段的数值。 |
-| 内存分配（Arena） | `Arena::CreateMessage<T>` | 在指定Arena内存池创建消息实例，减少内存碎片。 |
-| 内存分配（Arena）  | `Arena::Reset` | 重置Arena内存池，释放所有分配的对象。 |
-| I/O 编解码 | `CodedInputStream::ReadVarint32` | 从输入流读取32位变长整数。 |
-| I/O 编解码 | `CodedOutputStream::WriteString` | 将字符串写入输出流并编码。 |
-| JSON 工具类 | `util::JsonPrintOptions::SetAlwaysPrintEnumsAsInts` | 配置 JSON 输出时枚举是否以整数形式展示。 |
-| JSON 工具类 | `util::MessageToJsonString` | 将Protobuf消息转换为JSON字符串。 |
-| JSON 工具类 | `util::JsonStringToMessage` | 从JSON字符串解析为Protobuf消息。 |
-| 消息比对 | `util::MessageDifferencer::Equals` | 比对两个消息的字段值是否完全一致。 |
-| 描述符查询 | `Descriptor::FindFieldByName` | 根据字段名查询消息的字段描述符。 |
-| 动态消息 | `DynamicMessageFactory::GetPrototype` | 根据描述符创建动态消息的原型。 |
+#### 消息序列化与反序列化
+
+| 接口函数/方法 | 功能描述 |
+| -- | -- |
+| `MessageLite::SerializeToString` | 将消息序列化为二进制字符串。 |
+| `MessageLite::SerializeToArray` | 将消息序列化到字节数组。 |
+| `MessageLite::SerializeToCodedStream` | 将消息序列化到编码流。 |
+| `MessageLite::SerializeToZeroCopyStream` | 将消息序列化到零拷贝输出流。 |
+| `MessageLite::SerializeToFileDescriptor` | 将消息序列化并写入文件描述符。 |
+| `MessageLite::SerializeToOstream` | 将消息序列化到输出流。 |
+| `MessageLite::SerializeAsString` | 将消息序列化为字符串并返回。 |
+| `MessageLite::AppendToString` | 将序列化数据追加到已有字符串。 |
+| `MessageLite::ParseFromString` | 从二进制字符串反序列化消息。 |
+| `MessageLite::ParseFromArray` | 从字节数组反序列化消息。 |
+| `MessageLite::ParseFromCodedStream` | 从编码流反序列化消息。 |
+| `MessageLite::ParseFromZeroCopyStream` | 从零拷贝输入流反序列化消息。 |
+| `MessageLite::ParseFromFileDescriptor` | 从文件描述符读取并反序列化消息。 |
+| `MessageLite::ParseFromIstream` | 从输入流反序列化消息。 |
+| `MessageLite::ParseFromBoundedZeroCopyStream` | 从有界零拷贝流读取指定字节数并反序列化。 |
+| `MessageLite::MergeFromString` | 从字符串合并消息内容。 |
+| `MessageLite::MergeFromCodedStream` | 从编码流合并消息内容。 |
+| `MessageLite::MergeFromBoundedZeroCopyStream` | 从有界零拷贝流合并指定字节数的消息。 |
+| `MessageLite::ByteSizeLong` | 计算序列化后的字节大小。 |
+
+#### 消息基础操作
+
+| 接口函数/方法 | 功能描述 |
+| -- | -- |
+| `MessageLite::Clear` | 清空消息所有字段的数值。 |
+| `MessageLite::IsInitialized` | 检查必填字段是否已初始化。 |
+| `MessageLite::GetTypeName` | 获取消息类型名称。 |
+| `Message::CopyFrom` | 从另一个同类型消息复制字段数据。 |
+| `Message::MergeFrom` | 合并另一个消息的字段到当前消息。 |
+| `Message::DebugString` | 生成可读的调试字符串。 |
+| `Message::SpaceUsedLong` | 计算消息占用的内存大小。 |
+
+#### 反射接口
+
+| 接口函数/方法 | 功能描述 |
+| -- | -- |
+| `Message::GetDescriptor` | 获取消息的描述符。 |
+| `Message::GetReflection` | 获取消息的反射接口。 |
+| `Reflection::GetInt32/Int64/...` | 通过反射获取字段值（支持各种类型）。 |
+| `Reflection::SetInt32/Int64/...` | 通过反射设置字段值（支持各种类型）。 |
+| `Reflection::HasField` | 检查字段是否已设置。 |
+| `Reflection::ClearField` | 清空指定字段。 |
+| `Reflection::ListFields` | 列出所有已设置的字段。 |
+
+#### 描述符查询
+
+| 接口函数/方法 | 功能描述 |
+| -- | -- |
+| `Descriptor::name` | 获取消息类型名称。 |
+| `Descriptor::full_name` | 获取消息完全限定名。 |
+| `Descriptor::field_count` | 获取字段数量。 |
+| `Descriptor::FindFieldByName` | 根据字段名查询字段描述符。 |
+| `Descriptor::FindFieldByNumber` | 根据字段标签号查询字段描述符。 |
+| `FieldDescriptor::name` | 获取字段名称。 |
+| `FieldDescriptor::number` | 获取字段标签号。 |
+| `FieldDescriptor::type` | 获取字段类型。 |
+| `FieldDescriptor::is_repeated` | 判断是否为重复字段。 |
+
+#### Arena内存管理
+
+| 接口函数/方法 | 功能描述 |
+| -- | -- |
+| `Arena::Create<T>` | 在Arena内存池创建对象实例，减少内存碎片。 |
+| `Arena::CreateArray<T>` | 在Arena内存池创建数组。 |
+| `Arena::Reset` | 重置Arena内存池，释放所有分配的对象。 |
+| `Arena::SpaceAllocated` | 获取Arena已分配的内存大小。 |
+| `Arena::Own` | 接管堆对象的所有权，由Arena管理生命周期。 |
+| `MessageLite::GetArena` | 获取消息所在的Arena指针。 |
+
+#### I/O编解码
+
+| 接口函数/方法 | 功能描述 |
+| -- | -- |
+| `CodedInputStream::ReadVarint32` | 从输入流读取32位变长整数。 |
+| `CodedInputStream::ReadVarint64` | 从输入流读取64位变长整数。 |
+| `CodedInputStream::ReadString` | 从输入流读取字符串。 |
+| `CodedInputStream::ReadTag` | 读取字段标签。 |
+| `CodedInputStream::PushLimit` | 设置读取限制，防止缓冲区溢出。 |
+| `CodedOutputStream::WriteVarint32` | 向输出流写入32位变长整数。 |
+| `CodedOutputStream::WriteVarint64` | 向输出流写入64位变长整数。 |
+| `CodedOutputStream::WriteString` | 将字符串写入输出流并编码。 |
+| `CodedOutputStream::WriteTag` | 写入字段标签。 |
+
+#### JSON转换工具
+
+| 接口函数/方法 | 功能描述 |
+| -- | -- |
+| `util::MessageToJsonString` | 将Protobuf消息转换为JSON字符串。 |
+| `util::JsonStringToMessage` | 从JSON字符串解析为Protobuf消息。 |
+| `util::BinaryToJsonString` | 将二进制Protobuf数据转换为JSON字符串。 |
+| `util::JsonToBinaryString` | 将JSON字符串转换为二进制Protobuf数据。 |
+
+#### 消息比对
+
+| 接口函数/方法 | 功能描述 |
+| -- | -- |
+| `util::MessageDifferencer::Equals` | 比对两个消息的字段值是否完全一致。 |
+| `util::MessageDifferencer::Equivalent` | 比对两个消息是否等价（考虑默认值）。 |
+| `util::MessageDifferencer::Compare` | 执行消息比对并返回差异。 |
+| `MessageDifferencer::ReportDifferencesToString` | 将消息差异输出为字符串。 |
+
+#### 动态消息
+
+| 接口函数/方法 | 功能描述 |
+| -- | -- |
+| `DynamicMessageFactory::GetPrototype` | 根据描述符创建动态消息的原型。 |
+| `DynamicMessage::New` | 创建动态消息实例。 |
 
 ## 目录结构
 
@@ -53,7 +149,7 @@ LICENSE                            # 代码许可证
 docs/
 ├── LICENSE                        # 文档许可证
 └── zh/
-    ├── api.md                     # API参考
+    ├── api_reference.md           # API参考
     ├── installation_guide.md      # 安装指南
     ├── quick_start.md             # 快速入门
     └── release_notes.md           # 版本说明书
@@ -103,7 +199,7 @@ protobuf/
 |--|--|
 |[版本说明书](docs/zh/release_notes.md)|提供基于鲲鹏优化的Protobuf每个发布版本的基础信息和特性更新说明。|
 |[快速入门](docs/zh/quick_start.md)|提供基于鲲鹏优化的Protobuf快速上手示例与编译运行说明。|
-|[API参考](docs/zh/api.md)|提供varint编解码优化相关接口说明与函数定义。|
+|[API参考](docs/zh/api_reference.md)|提供varint编解码优化相关接口说明与函数定义。|
 |[安装指南](docs/zh/installation_guide.md)|提供基于鲲鹏优化代码Protobuf的环境配置与编译安装的详细指导。|
 
 ## 免责声明

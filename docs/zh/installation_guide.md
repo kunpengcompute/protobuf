@@ -6,10 +6,10 @@
 
 | 软件 | 版本要求 | 说明 |
 | ------ | ---------- | ------ |
+| 硬件配置 | 鲲鹏950处理器 | 支持NEON/SVE/SVE2指令集 |
 | 操作系统 | openEuler 22.03 LTS SP3 | Linux发行版 |
-| 编译器 | clang 16.0.6+<br>GCC 9.0+ | 支持 C++17 标准 |
+| 编译器 | clang 16.0.6 <br>GCC 12.3.1 | 支持C++23标准 |
 | CMake | 3.15或更高版本 | 构建工具 |
-| Git | 2.0或更高版本 | 版本控制 |
 | Bazel | 7.0+（可选） | 替代构建系统 |
 
 ## 获取代码
@@ -17,156 +17,147 @@
 运行以下命令获取代码。
 
 ```bash
-git clone --recursive -b dev_forBD_v4.25.8_SVE2 https://gitcode.com/boostkit/protobuf.git
+git clone --recursive -b dev_forJD_v33.0 https://gitcode.com/boostkit/protobuf.git
 cd protobuf
 ```
 
-如果获取代码时未使用 `git clone --recursive` 拉取依赖，则需要下载Abseil C++库到指定目录，确保 `third_party/abseil-cpp` 目录包含Abseil的所有源文件。
-
-- 方法一：使用git子模块（推荐）
-
-  ```bash
-  cd protobuf
-  git submodule update --init --recursive
-  ```
-
-- 方法二：手动下载
-
-  ```bash
-  cd protobuf
-  mkdir -p third_party/abseil-cpp
-  cd third_party/abseil-cpp
-  wget https://github.com/abseil/abseil-cpp/archive/refs/tags/20240722.1.tar.gz
-  tar -xzf 20240722.1.tar.gz --strip-components=1
-  ```
-
 ## 编译安装
 
-1. 创建自定义安装目录（可根据实际需求修改路径）。
+### 基础编译（基线版本）
+
+默认编译会支持通用的ARM架构，适用于各种ARM处理器。
+
+1. 设置安装目录。
 
    ```bash
-   mkdir -p /path/to/install/pb-bin
-   export PROTOBUF_INSTALL_DIR=/path/to/install/pb-bin
+   export PROTOBUF_INSTALL_DIR=$HOME/.local/protobuf
    ```
 
 2. 配置构建。
 
-   ```bash
-   mkdir build
-   cd build
-
-   # 基础配置（生成共享库）
-   cmake -Dprotobuf_BUILD_SHARED_LIBS=ON \
-         -DCMAKE_CXX_STANDARD=17 \
-         -DCMAKE_BUILD_TYPE=Release \
-         -DCMAKE_CXX_FLAGS="-O3" \
-         -DCMAKE_INSTALL_PREFIX=${PROTOBUF_INSTALL_DIR} \
-         ..
+   ```bash 
+   cmake -B build \
+     -Dprotobuf_FORCE_FETCH_DEPENDENCIES=ON \
+     -Dprotobuf_BUILD_SHARED_LIBS=ON \
+     -DCMAKE_CXX_STANDARD=17 \
+     -DCMAKE_BUILD_TYPE=Release \
+     -DCMAKE_INSTALL_PREFIX=${PROTOBUF_INSTALL_DIR}
    ```
 
 3. 编译。
 
-   - 使用所有可用CPU核心并行编译。
-   
-     ```bash
-     cmake --build . --parallel $(nproc)
-     ```
-
-   - 或指定核心数（例如32核）。
-
-      ```bash
-      cmake --build . --parallel 32
-      ```
+   ```bash
+   cmake --build build -j
+   ```
 
 4. 安装。
 
    ```bash
-   cmake --install .
+   cmake --install build
    ```
 
-5. 验证安装目录。
+### SVE2优化编译（鲲鹏950处理器）
 
-    ```bash
-    ls -la ${PROTOBUF_INSTALL_DIR}
-    ```
+启用SVE2编译选项以充分发挥鲲鹏处理器的优化性能。
 
-    回显结果如下：
-
-    ```text
-    total 28
-    drwxr-xr-x.  5 user user  4096 Mar 20 12:19 .
-    drwxr-xr-x. 33 user user  4096 Mar 20 16:39 ..
-    drwxr-xr-x.  2 user user  4096 Mar 20 12:19 bin
-    drwxr-xr-x.  5 user user  4096 Mar 20 12:19 include
-    drwxr-xr-x.  4 user user 12288 Mar 20 12:19 lib64
-    ```
-
-6. 查看动态库。
+1. 设置安装目录。
 
    ```bash
-   ls -la ${PROTOBUF_INSTALL_DIR}/lib*/libprotobuf*
+   export PROTOBUF_INSTALL_DIR=$HOME/.local/protobuf-opt
    ```
 
-   回显结果如下：
+2. 配置构建并启用SVE2支持，开启C++23优化。
 
-   ```text
-   lrwxrwxrwx. 1 user user      26 Mar 20 12:19 /home/user/pb/pb-bin/lib64/libprotobuf-lite.so -> libprotobuf-lite.so.25.8.0
-   -rwxr-xr-x. 1 user user 1138776 Mar 20 12:16 /home/user/pb/pb-bin/lib64/libprotobuf-lite.so.25.8.0
-   lrwxrwxrwx. 1 user user      21 Mar 20 12:19 /home/user/pb/pb-bin/lib64/libprotobuf.so -> libprotobuf.so.25.8.0
-   -rwxr-xr-x. 1 user user 4996960 Mar 20 12:16 /home/user/pb/pb-bin/lib64/libprotobuf.so.25.8.0
+   ```bash 
+   cmake -B build \
+     -Dprotobuf_FORCE_FETCH_DEPENDENCIES=ON \
+     -Dprotobuf_BUILD_SHARED_LIBS=ON \
+     -DCMAKE_CXX_STANDARD=23 \
+     -DCMAKE_BUILD_TYPE=Release \
+     -DCMAKE_CXX_FLAGS="-O3 -march=armv8.5-a+crc+sve+sve2+sve2-bitperm" \
+     -DCMAKE_INSTALL_PREFIX=${PROTOBUF_INSTALL_DIR}
    ```
 
-## 编译选项说明
+   **进阶优化选项**（可选，适用于追求极致性能的场景）
 
-### CMake 常用选项
+   ```bash
+   cmake -B build \
+     -Dprotobuf_FORCE_FETCH_DEPENDENCIES=ON \
+     -Dprotobuf_BUILD_SHARED_LIBS=ON \
+     -DCMAKE_CXX_STANDARD=23 \
+     -DCMAKE_BUILD_TYPE=Release \
+     -DCMAKE_CXX_FLAGS="-O3 -march=armv8.5-a+crc+sve+sve2+sve2-bitperm -flto=thin -fno-plt -fstrict-vtable-pointers" \
+     -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld -Wl,-mllvm,-inline-threshold=1350" \
+     -DCMAKE_SHARED_LINKER_FLAGS="-fuse-ld=lld -Wl,-mllvm,-inline-threshold=1350" \
+     -DCMAKE_INSTALL_PREFIX=${PROTOBUF_INSTALL_DIR}
+   ```
 
-| 选项 | 默认值 | 说明 |
-| ------ | -------- | ------ |
-| `-Dprotobuf_BUILD_TESTS` | OFF | 是否编译测试 |
-| `-Dprotobuf_BUILD_SHARED_LIBS` | OFF | 是否构建共享库（推荐ON） |
-| `-DCMAKE_CXX_STANDARD` | 17 | C++ 标准（推荐17） |
-| `-DCMAKE_BUILD_TYPE` | Release | 构建类型（Release/Debug） |
-| `-DCMAKE_CXX_FLAGS` | - | 额外编译标志（推荐-O3） |
-| `-Dprotobuf_BUILD_CONFORMANCE` | OFF | 是否构建一致性测试 |
+3. 编译。
 
-### 性能优化编译标志
+   ```bash
+   cmake --build build -j
+   ```
 
-针对ARM架构（鲲鹏处理器）的推荐编译标志。
+4. 安装。
+
+   ```bash
+   cmake --install build
+   ```
+
+### 编译选项说明
+
+| 选项 | 说明 | 默认值 |
+| ------ | ------ | -------- |
+| `CMAKE_BUILD_TYPE` | 构建类型（Debug/Release/RelWithDebInfo）。 | Release |
+| `protobuf_FORCE_FETCH_DEPENDENCIES` | 强制从网络获取依赖项（Abseil等），推荐开启。 | OFF |
+| `protobuf_BUILD_SHARED_LIBS` | 构建共享库而非静态库。 | OFF |
+| `CMAKE_CXX_STANDARD` | C++标准版本（推荐17或23）。 | 17 |
+| `CMAKE_CXX_FLAGS` | 编译器标志（-march启用SVE2优化）。 | - |
+| `CMAKE_INSTALL_PREFIX` | 安装路径。 | /usr/local |
+| `protobuf_BUILD_TESTS` | 编译测试。 | OFF |
+| `protobuf_BUILD_CONFORMANCE` | 构建一致性测试。 | OFF |
+
+## 安装验证
+
+安装完成后，通过以下命令查看动态库是否安装成功。
 
 ```bash
-cmake -DCMAKE_CXX_FLAGS="-O3 -march=armv9.2-a+crc+sve+sve2+sve2-bitperm -mtune=native" ..
+ls -la ${PROTOBUF_INSTALL_DIR}/lib*/libprotobuf*
+```
 
-# 进阶优化示例（可选）
-cmake -DCMAKE_CXX_FLAGS="-O3 -march=armv9.2-a+crc+sve+sve2+sve2-bitperm -flto=thin -fno-plt -fstrict-vtable-pointers" \
-      -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld -Wl,-mllvm,-inline-threshold=1350" \
-      -DCMAKE_SHARED_LINKER_FLAGS="-fuse-ld=lld -Wl,-mllvm,-inline-threshold=1350" \
-      ..
+预期输出如下信息则安装成功。
+
+```text
+lrwxrwxrwx. 1 user user      26 Mar 20 12:19 libprotobuf-lite.so -> libprotobuf-lite.so.33.0.0
+-rwxr-xr-x. 1 user user 1138776 Mar 20 12:16 libprotobuf-lite.so.33.0.0
+lrwxrwxrwx. 1 user user      21 Mar 20 12:19 libprotobuf.so -> libprotobuf.so.33.0.0
+-rwxr-xr-x. 1 user user 4996960 Mar 20 12:16 libprotobuf.so.33.0.0
 ```
 
 ## 运行测试
 
-1. 进入测试目录。
+编译完成后，可以运行测试验证构建结果。
 
-   ```shell
-   cd build
+1. 创建临时目录。
+
+   ```bash
+   tmp=$(mktemp -d)
    ```
 
-2. 以下三种方式任选其一执行即可。
+2. 运行所有测试。
 
-   - 运行所有测试。
-
-    ```shell
-    ctest --verbose
-    ```
-
-   - 运行特定测试。
-
-   ```shell
-   ctest -R message_test
+   ```bash
+   TEST_TEMPDIR=$tmp ctest --test-dir build --verbose
    ```
 
-   - 并行运行测试。
+3. 运行特定测试。
 
-   ```shell
-   ctest --parallel $(nproc)
+   ```bash
+   TEST_TEMPDIR=$tmp ctest --test-dir build -R message_test
+   ```
+
+4. 并行运行测试。
+
+   ```bash
+   TEST_TEMPDIR=$tmp ctest --test-dir build --progress --output-on-failure --parallel $(nproc)
    ```

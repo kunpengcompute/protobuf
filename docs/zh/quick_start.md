@@ -1,6 +1,6 @@
 # 快速入门
 
-执行本文档操作前确保已安装基于鲲鹏优化的Protocol Buffers，详细安装步骤请参见《[安装指南](./installation_guide.md)》。安装成功后，主要生成产物位于安装目录中（例如：`/path/to/install/pb-bin`）。
+执行本文档操作前确保已安装基于鲲鹏优化的Protocol Buffers，详细安装步骤请参见《[安装指南](./installation_guide.md)》。安装成功后，主要生成产物位于安装目录中（例如`/path/to/install/pb-bin`）。
 
 ```text
 /path/to/install/pb-bin/
@@ -56,12 +56,12 @@ message AddressBook {
 
 使用`protoc`编译器生成目标语言的代码。
 
-设置环境变量如下：
+### 设置环境变量
+
+设置protoc的bin和lib路径（假设安装在`/path/to/install/pb-bin`，请根据实际路径修改）。
 
 ```bash
-# 设置 protoc 路径（假设安装在 /path/to/install/pb-bin）
 export PATH=/path/to/install/pb-bin/bin:$PATH
-# 注意根据实际路径lib/lib64修改
 export LD_LIBRARY_PATH=/path/to/install/pb-bin/lib:$LD_LIBRARY_PATH
 ```
 
@@ -109,8 +109,6 @@ protoc --cpp_out=. addressbook.proto
 ## 使用protoc生成的代码
 
 ### C++编解码示例代码
-
-C++编解码示例代码如下。
 
 ```cpp
 #include <iomanip>
@@ -206,39 +204,3 @@ int main() {
    ```bash
    ./example
    ```
-
-## 常用操作
-
-### Json转换
-
-Protobuf支持与Json格式互相转换。
-
-```cpp
-#include <google/protobuf/util/json_util.h>
-
-// Protobuf转Json
-std::string json_string;
-google::protobuf::util::MessageToJsonString(address_book, &json_string);
-std::cout << json_string << std::endl;
-
-// Json转Protobuf
-tutorial::AddressBook address_book2;
-google::protobuf::util::JsonStringToMessage(json_string, &address_book2);
-```
-
-### 使用Arena内存池
-
-Arena可以提高性能，减少内存碎片，使用方法如下。
-
-```cpp
-// Arena 销毁时自动释放所有对象
-#include <google/protobuf/arena.h>
-
-google::protobuf::Arena arena;
-
-// 在 Arena 中创建消息
-tutorial::Person* person =
-    google::protobuf::Arena::CreateMessage<tutorial::Person>(&arena);
-person->set_name("李四");
-person->set_id(5678);
-```
