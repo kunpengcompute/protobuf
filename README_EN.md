@@ -2,11 +2,14 @@
 
 ## Latest Updates
 
-- 2026.03.30: Released varint packed encoding and decoding optimization and enabled the SIMDUTF verification algorithm.
+- [2026-06-30]: Released V1.0.1: Added parsing optimizations for Map and StringBlock and supports the C++23 `resize_and_overwrite` feature.
+- [2026-03-30]: Released V1.0.0: Added varint packed encoding and decoding optimizations and enabled the SIMDUTF verification algorithm.
 
-## Introduction
+## Project Introduction
 
-Protocol Buffers (Protobuf) is an open-source mechanism developed by Google for serializing structured data. It is **language-neutral**, **platform-neutral**, and **extensible**, designed for efficient data exchange and storage in distributed systems. Protobuf also supports seamless integration with RPC frameworks such as gRPC. Its core advantages include small serialized size, fast parsing speed, and support for multi-version protocol compatibility and evolution. Additionally, it provides runtime libraries across multiple languages including C++, Java, Python, and Go.
+### Overview
+
+Protocol Buffers (Protobuf) is an open-source mechanism developed by Google for serializing structured data. It is **language-neutral**, **platform-neutral**, and **extensible**, designed for efficient data exchange and storage in distributed systems. Protobuf also supports seamless integration with RPC frameworks such as bRPC/gRPC. Its core advantages include small serialized size, fast parsing speed, and support for multi-version protocol compatibility and evolution. Additionally, it provides runtime libraries across multiple languages including C++, Java, Python, and Go.
 
 ### Core Modules
 
@@ -23,24 +26,111 @@ Protobuf consists of two main core components: the **compiler module** (`protoc`
 
 The following table lists the core API functions exposed by Protobuf (using C++ as an example), such as message operations, I/O encoding and decoding, utility functions.
 
-| Module Category| Function/Method| Description|
-|--|--|--|
-| Basic message operations| `MessageLite::SerializeToString` | Serializes a message into a binary string.|
-| | `MessageLite::ParseFromString` | Deserializes a message from a binary string.|
-| | `Message::CopyFrom` | Copies field data from another message of the same type.|
-| | `Message::Clear` | Clears the values of all fields in a message.|
-| Memory allocation (Arena)| `Arena::CreateMessage<T>` | Creates a message instance in a specified arena memory pool to reduce memory fragments.|
-| | `Arena::Reset` | Resets the arena memory pool, releasing all allocated objects.|
-| I/O encoding and decoding| `CodedInputStream::ReadVarint32` | Reads a 32-bit variable-length integer from the input stream.|
-| | `CodedOutputStream::WriteString` | Writes a string to the output stream and encodes it.|
-| JSON utility classes| `util::JsonPrintOptions::SetAlwaysPrintEnumsAsInts` | Configures JSON output to display enums as integers.|
-| | `util::MessageToJsonString` | Converts a Protobuf message into a JSON string.|
-| | `util::JsonStringToMessage` | Parses a JSON string into a Protobuf message.|
-| Message comparison| `util::MessageDifferencer::Equals` | Compares the field values of two messages to check if they are identical.|
-| Descriptor query| `Descriptor::FindFieldByName` | Queries the field descriptor of a message based on the field name.|
-| Dynamic message| `DynamicMessageFactory::GetPrototype` | Creates a prototype for a dynamic message based on the descriptor.|
+#### Message Serialization and Deserialization
+
+| Function/Method | Description |
+| -- | -- |
+| `MessageLite::SerializeToString` | Serializes a message into a binary string. |
+| `MessageLite::SerializeToArray` | Serializes a message into a byte array. |
+| `MessageLite::SerializeToCodedStream` | Serializes a message to a coded stream. |
+| `MessageLite::SerializeToOstream` | Serializes a message to an output stream. |
+| `MessageLite::ParseFromString` | Deserializes a message from a binary string. |
+| `MessageLite::ParseFromArray` | Deserializes a message from a byte array. |
+| `MessageLite::ParseFromCodedStream` | Deserializes a message from a coded stream. |
+| `MessageLite::ParseFromIstream` | Deserializes a message from an input stream. |
+| `MessageLite::ByteSizeLong` | Calculates the byte size after serialization. |
+
+#### Basic Message Operations
+
+| Function/Method | Description |
+| -- | -- |
+| `MessageLite::Clear` | Clears the values of all fields in the message. |
+| `MessageLite::IsInitialized` | Checks if all required fields are initialized. |
+| `MessageLite::GetTypeName` | Gets the message type name. |
+| `Message::CopyFrom` | Copies field data from another message of the same type. |
+| `Message::MergeFrom` | Merges fields from another message into the current message. |
+| `Message::DebugString` | Generates a human-readable debugging string. |
+| `Message::SpaceUsedLong` | Calculates the memory size occupied by the message. |
+
+#### Reflection Interfaces
+
+| Function/Method | Description |
+| -- | -- |
+| `Message::GetDescriptor` | Gets the descriptor of the message. |
+| `Message::GetReflection` | Gets the reflection interface of the message. |
+| `Reflection::GetInt32/Int64/...` | Gets the field value via reflection (supporting various types). |
+| `Reflection::SetInt32/Int64/...` | Sets the field value via reflection (supporting various types). |
+| `Reflection::HasField` | Checks if a field has been set. |
+| `Reflection::ClearField` | Clears a specified field. |
+| `Reflection::ListFields` | Lists all fields that have been set. |
+
+#### Descriptor Queries
+
+| Function/Method | Description |
+| -- | -- |
+| `Descriptor::name` | Gets the message type name. |
+| `Descriptor::full_name` | Gets the fully qualified name of the message. |
+| `Descriptor::field_count` | Gets the number of fields. |
+| `Descriptor::FindFieldByName` | Finds a field descriptor by field name. |
+| `Descriptor::FindFieldByNumber` | Finds a field descriptor by field tag number. |
+| `FieldDescriptor::name` | Gets the field name. |
+| `FieldDescriptor::number` | Gets the field tag number. |
+| `FieldDescriptor::type` | Gets the field type. |
+| `FieldDescriptor::is_repeated` | Checks if the field is a repeated field. |
+
+#### Arena Memory Management
+
+| Function/Method | Description |
+| -- | -- |
+| `Arena::Create<T>` | Creates an object instance in the arena memory pool to reduce memory fragmentation. |
+| `Arena::CreateArray<T>` | Creates an array in the arena memory pool. |
+| `Arena::Reset` | Resets the arena memory pool, releasing all allocated objects. |
+| `Arena::SpaceAllocated` | Gets the size of the memory allocated by the arena. |
+| `Arena::Own` | Takes ownership of a heap object, allowing its lifecycle to be managed by the arena. |
+| `MessageLite::GetArena` | Gets the pointer to the arena where the message resides. |
+
+#### I/O Encoding and Decoding
+
+| Function/Method | Description |
+| -- | -- |
+| `CodedInputStream::ReadVarint32` | Reads a 32-bit variable-length integer from the input stream. |
+| `CodedInputStream::ReadVarint64` | Reads a 64-bit variable-length integer from the input stream. |
+| `CodedInputStream::ReadString` | Reads a string from the input stream. |
+| `CodedInputStream::ReadTag` | Reads a field tag. |
+| `CodedInputStream::PushLimit` | Sets a read limit to prevent buffer overflow. |
+| `CodedOutputStream::WriteVarint32` | Writes a 32-bit variable-length integer to the output stream. |
+| `CodedOutputStream::WriteVarint64` | Writes a 64-bit variable-length integer to the output stream. |
+| `CodedOutputStream::WriteString` | Writes a string to the output stream and encodes it. |
+| `CodedOutputStream::WriteTag` | Writes a field tag. |
+
+#### JSON Conversion
+
+| Function/Method | Description |
+| -- | -- |
+| `util::MessageToJsonString` | Converts a Protobuf message into a JSON string. |
+| `util::JsonStringToMessage` | Parses a JSON string into a Protobuf message. |
+| `util::BinaryToJsonString` | Converts binary Protobuf data into a JSON string. |
+| `util::JsonToBinaryString` | Converts a JSON string into binary Protobuf data. |
+
+#### Message Comparison
+
+| Function/Method | Description |
+| -- | -- |
+| `util::MessageDifferencer::Equals` | Compares whether the field values of two messages are completely identical. |
+| `util::MessageDifferencer::Equivalent` | Compares whether two messages are equivalent (taking default values into account). |
+| `util::MessageDifferencer::Compare` | Performs message comparison and returns the differences. |
+| `MessageDifferencer::ReportDifferencesToString` | Outputs the message differences as a string. |
+
+#### Dynamic Messages
+
+| Function/Method | Description |
+| -- | -- |
+| `DynamicMessageFactory::GetPrototype` | Creates a prototype of a dynamic message based on a descriptor. |
+| `DynamicMessage::New` | Creates an instance of a dynamic message. |
 
 ## Directory Structure
+
+The project directory structure is as follows:
 
 ```text
 # Document Directory
@@ -50,7 +140,7 @@ docs/
 ├── LICENSE                        # Document license
 └── en/
     ├── api_reference.md           # API Reference
-    ├── installation_guide.md      # Compilation and Installation
+    ├── installation_guide.md      # Installation Guide
     ├── quick_start.md             # Quick Start
     └── release_notes.md           # Release Notes
     
@@ -83,24 +173,24 @@ protobuf/
 
 ## Release Notes
 
-For details about version mapping, see [Release Notes](docs/en/release_notes.md).
+For detailed information about feature changes in each Kunpeng-optimized Protobuf release, see [Release Notes](docs/en/release_notes.md).
 
 ## Environment Deployment
 
-For details about the compilation environment, dependency obtaining, and installation procedure, see [Installation Guide](docs/en/installation_guide.md).
+For details about the compilation environment, dependency obtaining, and installation procedure of Kunpeng-optimized Protobuf, see [Installation Guide](docs/en/installation_guide.md).
 
 ## Quick Start
 
-For details, see [Quick Start](docs/en/quick_start.md).
+To quickly get started with Protobuf, see [Quick Start](docs/en/quick_start.md).
 
 ## Documents
 
 |Name|Description|
 |--|--|
-|[Release Notes](docs/en/release_notes.md)|Provides basic information and feature updates of each version of optimized Kunpeng Protobuf.|
-|[Quick Start](docs/en/quick_start.md)|Provides quick start examples and compilation instructions for optimized Kunpeng Protobuf.|
+|[Release Notes](docs/en/release_notes.md)|Provides basic information and feature updates of each version of Kunpeng-optimized Protobuf.|
+|[Quick Start](docs/en/quick_start.md)|Provides quick start examples and compilation instructions for Kunpeng-optimized Protobuf.|
 |[API Reference](docs/en/api_reference.md)|Provides descriptions and definitions of APIs related to varint encoding and decoding optimization.|
-|[Installation Guide](docs/en/installation_guide.md)|Provides detailed guidance on environment configuration, compilation, and installation of optimized Kunpeng Protobuf code.|
+|[Installation Guide](docs/en/installation_guide.md)|Provides detailed guidance on environment configuration, compilation, and installation of Kunpeng-optimized Protobuf code.|
 
 ## Disclaimer
 
@@ -121,13 +211,13 @@ If you do not want your dataset to be mentioned in the Protobuf optimization rep
 
 ## License
 
-Protobuf is licensed under BSD-3-Clause. For details, see [LICENSE](https://gitcode.com/boostkit/protobuf/blob/master/LICENSE).
+Protobuf is licensed under BSD-3-Clause. For details, see [LICENSE](LICENSE).
 
 The documents of Protobuf are licensed under CC-BY 4.0. For details, see [LICENSE](docs/LICENSE).
 
 ## Contribution Statement
 
-We welcome your contributions to the community. If you have any questions/suggestions or want to provide feedback on feature requirements and bug reports, you can submit [issues](https://gitcode.com/boostkit/community/blob/master/docs/contributor/issue-submit.md). For details, see the [contribution guideline](https://gitcode.com/boostkit/community/blob/master/docs/contributor/contributing.md). You are also welcome to share insights in the [Discussions](https://gitcode.com/boostkit/community/discussions). Thank you for your support.
+We welcome your contributions to the community. If you have any questions/suggestions or want to provide feedback on feature requirements and bug reports, you can submit issues. For details, see the contribution guideline. You are also welcome to share insights in the [Discussions](https://gitcode.com/boostkit/community/discussions). Thank you for your support.
 
 ## Acknowledgments
 

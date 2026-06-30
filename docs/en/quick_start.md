@@ -1,7 +1,6 @@
 # Quick Start
 
-Before performing operations, ensure that the compilation and installation process described in [Installation Guide](installation_guide.md) has been completed.
-After the installation is successful, the generated files are stored in the installation directory, for example, `/path/to/install/pb-bin`.
+Before performing operations in this document, ensure that Kunpeng-optimized Protobuf has been installed following the steps described in [Installation Guide](./installation_guide.md). After the installation is successful, the generated files are stored in the installation directory, for example, `/path/to/install/pb-bin`.
 
 ```text
 /path/to/install/pb-bin/
@@ -57,16 +56,18 @@ message AddressBook {
 
 Use the `protoc` compiler to generate code in the target language.
 
-Set the environment variables as follows:
+### Setting Environment Variables
+
+Set the path to `protoc` (assuming it is installed in `/path/to/install/pb-bin`; modify it based on the actual path).
 
 ```bash
-# Set the path for protoc (assuming it is installed in /path/to/install/pb-bin).
 export PATH=/path/to/install/pb-bin/bin:$PATH
-# Modify lib or lib64 according to the actual path.
 export LD_LIBRARY_PATH=/path/to/install/pb-bin/lib:$LD_LIBRARY_PATH
 ```
 
 ### Generating C++ Code
+
+Use the following directory to generate C++ code.
 
 ```bash
 protoc --cpp_out=. addressbook.proto
@@ -78,6 +79,8 @@ The preceding command generates the following two files:
 - `addressbook.pb.cc`: implementation file, containing class definitions
 
 ### Generating Code in Other Languages
+
+Code generation is supported for the following languages:
 
 - Java
 
@@ -91,7 +94,7 @@ The preceding command generates the following two files:
   protoc --python_out=. addressbook.proto
   ```
 
-- Go (The protoc-gen-go plugin must be installed.)
+- Go (The `protoc-gen-go` plugin must be installed.)
 
   ```bash
   protoc --go_out=. addressbook.proto
@@ -195,45 +198,9 @@ int main() {
        $(pkg-config --libs protobuf) \
        -o example
    ```
-
+   
 2. Run the code.
 
    ```bash
    ./example
    ```
-
-## Common Operations
-
-### JSON Conversion
-
-Protobuf supports conversion to and from JSON.
-
-```cpp
-#include <google/protobuf/util/json_util.h>
-
-// Convert Protobuf to JSON.
-std::string json_string;
-google::protobuf::util::MessageToJsonString(address_book, &json_string);
-std::cout << json_string << std::endl;
-
-// Convert JSON to Protobuf.
-tutorial::AddressBook address_book2;
-google::protobuf::util::JsonStringToMessage(json_string, &address_book2);
-```
-
-### Using the Arena Memory Pool
-
-Arena can improve performance and reduce memory fragments. The usage is as follows:
-
-```cpp
-// All objects are automatically released when the arena memory pool is destroyed.
-#include <google/protobuf/arena.h>
-
-google::protobuf::Arena arena;
-
-// Create a message in the arena memory pool.
-tutorial::Person* person =
-    google::protobuf::Arena::CreateMessage<tutorial::Person>(&arena);
-person->set_name("Jerry");
-person->set_id(5678);
-```
