@@ -200,7 +200,7 @@ protobuf/
 |[版本说明书](docs/zh/release_notes.md)|提供基于鲲鹏优化的Protobuf每个发布版本的基础信息和特性更新说明。|
 |[快速入门](docs/zh/quick_start.md)|提供基于鲲鹏优化的Protobuf快速上手示例与编译运行说明。|
 |[API参考](docs/zh/api_reference.md)|提供varint编解码优化相关接口说明与函数定义。|
-|[安装指南](docs/zh/installation_guide.md)|提供基于鲲鹏优化代码Protobuf的环境配置与编译安装的详细指导。|
+|[安装指南](docs/zh/installation_guide.md)|提供基于鲲鹏优化后的Protobuf的环境配置与编译安装的详细指导。|
 
 ## 免责声明
 

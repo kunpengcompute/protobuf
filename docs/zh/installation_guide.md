@@ -7,7 +7,7 @@
 | 软件 | 版本要求 | 说明 |
 | ------ | ---------- | ------ |
 | 硬件配置 | 鲲鹏950处理器 | 支持NEON/SVE/SVE2指令集 |
-| 操作系统 | openEuler 22.03 LTS SP3 | Linux发行版 |
+| 操作系统 | openEuler 22.03 LTS SP3<br>openEuler 24.03 LTS SP3 | Linux发行版 |
 | 编译器 | clang 16.0.6 <br>GCC 12.3.1 | 支持C++23标准 |
 | CMake | 3.15或更高版本 | 构建工具 |
 | Bazel | 7.0+（可选） | 替代构建系统 |
@@ -35,7 +35,7 @@ cd protobuf
 
 2. 配置构建。
 
-   ```bash 
+   ```bash
    cmake -B build \
      -Dprotobuf_FORCE_FETCH_DEPENDENCIES=ON \
      -Dprotobuf_BUILD_SHARED_LIBS=ON \
@@ -68,7 +68,7 @@ cd protobuf
 
 2. 配置构建并启用SVE2支持，开启C++23优化。
 
-   ```bash 
+   ```bash
    cmake -B build \
      -Dprotobuf_FORCE_FETCH_DEPENDENCIES=ON \
      -Dprotobuf_BUILD_SHARED_LIBS=ON \

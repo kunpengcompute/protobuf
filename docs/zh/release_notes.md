@@ -32,7 +32,7 @@
 
 |操作系统|CPU类型|编译器|
 |--|--|--|
-|openEuler 24.03 LTS SP3|鲲鹏950处理器|Clang 16.0.6 <br>GCC 12.3.1|
+|openEuler 22.03 LTS SP3<br>openEuler 24.03 LTS SP3|鲲鹏950处理器|Clang 16.0.6 <br>GCC 12.3.1|
 
 ## 版本更新说明
 
@@ -75,7 +75,7 @@
 </tr>
 <tr id="row17314122818119"><td class="cellrowborder" valign="top" width="45.019999999999996%" headers="mcps1.1.4.1.1 "><p id="p9534164291118"><a name="p9534164291118"></a><a name="p9534164291118"></a>《安装指南》</p>
 </td>
-<td class="cellrowborder" valign="top" width="38.019999999999996%" headers="mcps1.1.4.1.2 "><p id="p1353414214111"><a name="p1353414214111"></a><a name="p1353414214111"></a>提供基于鲲鹏优化代码Protobuf的环境配置与编译安装的详细指导。</p>
+<td class="cellrowborder" valign="top" width="38.019999999999996%" headers="mcps1.1.4.1.2 "><p id="p1353414214111"><a name="p1353414214111"></a><a name="p1353414214111"></a>提供基于鲲鹏优化的Protobuf的环境配置与编译安装的详细指导。</p>
 </td>
 <td class="cellrowborder" valign="top" width="16.96%" headers="mcps1.1.4.1.3 "><p id="p1164511541488"><a name="p1164511541488"></a><a name="p1164511541488"></a>开源仓</p>
 </td>
@@ -88,7 +88,7 @@
 </td>
 </tr>
 
-<tr id="row1021013311110"><td class="cellrowborder" valign="top" width="45.019999999999996%" headers="mcps1.1.4.1.1 "><p id="p18535154291116"><a name="p18535154291116"></a><a name="p18535154291116"></a>《API参考》</p>
+<tr id="row1021013311111"><td class="cellrowborder" valign="top" width="45.019999999999996%" headers="mcps1.1.4.1.1 "><p id="p18535154291116"><a name="p18535154291116"></a><a name="p18535154291116"></a>《API参考》</p>
 </td>
 <td class="cellrowborder" valign="top" width="38.019999999999996%" headers="mcps1.1.4.1.2 "><p id="p1353554215117"><a name="p1353554215117"></a><a name="p1353554215117"></a>提供varint编解码优化相关接口说明与函数定义。</p>
 </td>

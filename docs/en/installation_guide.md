@@ -1,15 +1,15 @@
 # Installation Guide
 
-This document describes how to compile and install optimized Kunpeng Protocol Buffers (Protobuf).
+This document describes how to compile and install Kunpeng-optimized Protocol Buffers (Protobuf).
 
 ## Environment Requirements
 
-| Software| Version Requirement| Description|
-|------|----------|------|
-| OS| openEuler 22.03 LTS SP3 | Linux Distribution|
-| Compiler| clang 16.0.6+<br>GCC 9.0+ | Supports the C++17 standard.|
+| Item| Version Requirement| Description|
+| ------ | ---------- | ------ |
+| Hardware | Kunpeng 950 processor | Supports the NEON/SVE/SVE2 instruction set. |
+| OS| openEuler 22.03 LTS SP3<br>openEuler 24.03 LTS SP3 | Linux Distribution|
+| Compiler| Clang 16.0.6 <br>GCC 12.3.1 | Supports the C++23 standard.|
 | CMake | 3.15 or later| Build tool|
-| Git | 2.0 or later| Version control|
 | Bazel | 7.0+ (optional)| Alternative build system|
 
 ## Obtaining Code
@@ -17,156 +17,147 @@ This document describes how to compile and install optimized Kunpeng Protocol Bu
 Obtain the code.
 
 ```bash
-git clone --recursive -b dev_forBD_v4.25.8_SVE2 https://gitcode.com/boostkit/protobuf.git
+git clone --recursive -b dev_forJD_v33.0 https://gitcode.com/boostkit/protobuf.git
 cd protobuf
 ```
 
-If the code was not fetched using `git clone --recursive` to pull all dependencies, you need to download the Abseil C++ library to the specified directory and ensure that the `third_party/abseil-cpp` directory contains all the source files of Abseil.
-
-- Method 1: Using Git Submodules (Recommended)
-
-  ```bash
-  cd protobuf
-  git submodule update --init --recursive
-  ```
-
-- Method 2: Manual Download
-
-  ```bash
-  cd protobuf
-  mkdir -p third_party/abseil-cpp
-  cd third_party/abseil-cpp
-  wget https://github.com/abseil/abseil-cpp/archive/refs/tags/20240722.1.tar.gz
-  tar -xzf 20240722.1.tar.gz --strip-components=1
-  ```
-
 ## Compilation and Installation
 
-1. Create a user-defined installation directory. You can change the directory as required.
+### Baseline Compilation
+
+The default compilation supports the generic Arm architecture and is applicable to various Arm processors.
+
+1. Set the installation directory.
 
    ```bash
-   mkdir -p /path/to/install/pb-bin
-   export PROTOBUF_INSTALL_DIR=/path/to/install/pb-bin
+   export PROTOBUF_INSTALL_DIR=$HOME/.local/protobuf
    ```
 
 2. Configure the build.
 
-   ```bash
-   mkdir build
-   cd build
-
-   # Basic configuration (generating a shared library)
-   cmake -Dprotobuf_BUILD_SHARED_LIBS=ON \
-         -DCMAKE_CXX_STANDARD=17 \
-         -DCMAKE_BUILD_TYPE=Release \
-         -DCMAKE_CXX_FLAGS="-O3" \
-         -DCMAKE_INSTALL_PREFIX=${PROTOBUF_INSTALL_DIR} \
-         ..
+   ```bash 
+   cmake -B build \
+     -Dprotobuf_FORCE_FETCH_DEPENDENCIES=ON \
+     -Dprotobuf_BUILD_SHARED_LIBS=ON \
+     -DCMAKE_CXX_STANDARD=17 \
+     -DCMAKE_BUILD_TYPE=Release \
+     -DCMAKE_INSTALL_PREFIX=${PROTOBUF_INSTALL_DIR}
    ```
 
-3. Perform the compilation.
-
-   - Use all available CPU cores for parallel compilation.
-
-    ```bash 
-    cmake --build . --parallel $(nproc)
-    ```
-
-   - Or specify the number of cores (for example, 32 cores).
-
-       ```bash 
-      cmake --build . --parallel 32
-      ```
-
-4. Perform the installation.
+3. Compile.
 
    ```bash
-   cmake --install .
+   cmake --build build -j
    ```
 
-5. Verify the installation directory.
-
-    ```bash
-    cmake --install .
-    ```
-
-    Command output:
-
-    ```text
-    total 28
-    drwxr-xr-x.  5 user user  4096 Mar 20 12:19 .
-    drwxr-xr-x. 33 user user  4096 Mar 20 16:39 ..
-    drwxr-xr-x.  2 user user  4096 Mar 20 12:19 bin
-    drwxr-xr-x.  5 user user  4096 Mar 20 12:19 include
-    drwxr-xr-x.  4 user user 12288 Mar 20 12:19 lib64
-    ```
-
-6. View the dynamic library.
+4. Install.
 
    ```bash
-   ls -la ${PROTOBUF_INSTALL_DIR}/lib*/libprotobuf*
+   cmake --install build
    ```
 
-   Command output:
+### SVE2 Optimized Compilation (Kunpeng 950 Processor)
 
-   ```text
-   lrwxrwxrwx. 1 user user      26 Mar 20 12:19 /home/user/pb/pb-bin/lib64/libprotobuf-lite.so -> libprotobuf-lite.so.25.8.0
-   -rwxr-xr-x. 1 user user 1138776 Mar 20 12:16 /home/user/pb/pb-bin/lib64/libprotobuf-lite.so.25.8.0
-   lrwxrwxrwx. 1 user user      21 Mar 20 12:19 /home/user/pb/pb-bin/lib64/libprotobuf.so -> libprotobuf.so.25.8.0
-   -rwxr-xr-x. 1 user user 4996960 Mar 20 12:16 /home/user/pb/pb-bin/lib64/libprotobuf.so.25.8.0
+Enable SVE2 compilation options to fully leverage the optimized performance of Kunpeng processors.
+
+1. Set the installation directory.
+
+   ```bash
+   export PROTOBUF_INSTALL_DIR=$HOME/.local/protobuf-opt
    ```
 
-## Compilation Option Description
+2. Configure the build and enable the SVE2 support for C++23 optimization.
 
-### Common CMake Options
+   ```bash 
+   cmake -B build \
+     -Dprotobuf_FORCE_FETCH_DEPENDENCIES=ON \
+     -Dprotobuf_BUILD_SHARED_LIBS=ON \
+     -DCMAKE_CXX_STANDARD=23 \
+     -DCMAKE_BUILD_TYPE=Release \
+     -DCMAKE_CXX_FLAGS="-O3 -march=armv8.5-a+crc+sve+sve2+sve2-bitperm -mtune=native" \
+     -DCMAKE_INSTALL_PREFIX=${PROTOBUF_INSTALL_DIR}
+   ```
 
-| Option| Default Value| Description|
-|------|--------|------|
-| `-Dprotobuf_BUILD_TESTS` | OFF | Whether to build for testing|
-| `-Dprotobuf_BUILD_SHARED_LIBS` | OFF | Whether to build a shared library (**ON** is recommended)|
-| `-DCMAKE_CXX_STANDARD` | 17 | C++ standard (**17** is recommended)|
-| `-DCMAKE_BUILD_TYPE` | Release | Build type (Release/Debug)|
-| `-DCMAKE_CXX_FLAGS` | - | Additional compilation flag (**-O3** is recommended)|
-| `-Dprotobuf_BUILD_CONFORMANCE` | OFF | Whether to build a consistency test|
+   **Advanced optimization options** (Optional, applicable to scenarios pursuing ultimate performance)
 
-### Performance Optimization Compilation Flag
+   ```bash
+   cmake -B build \
+     -Dprotobuf_FORCE_FETCH_DEPENDENCIES=ON \
+     -Dprotobuf_BUILD_SHARED_LIBS=ON \
+     -DCMAKE_CXX_STANDARD=23 \
+     -DCMAKE_BUILD_TYPE=Release \
+     -DCMAKE_CXX_FLAGS="-O3 -march=armv8.5-a+crc+sve+sve2+sve2-bitperm -flto=thin -fno-plt -fstrict-vtable-pointers" \
+     -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld -Wl,-mllvm,-inline-threshold=1350" \
+     -DCMAKE_SHARED_LINKER_FLAGS="-fuse-ld=lld -Wl,-mllvm,-inline-threshold=1350" \
+     -DCMAKE_INSTALL_PREFIX=${PROTOBUF_INSTALL_DIR}
+   ```
 
-Recommended compilation flags for the Arm architecture (Kunpeng processor)
+3. Compile.
+
+   ```bash
+   cmake --build build -j
+   ```
+
+4. Install.
+
+   ```bash
+   cmake --install build
+   ```
+
+### Compilation Option Description
+
+| Option | Description | Default Value |
+| ------ | ------ | -------- |
+| `CMAKE_BUILD_TYPE` | Build type (Debug/Release/RelWithDebInfo). | Release |
+| `protobuf_FORCE_FETCH_DEPENDENCIES` | Forces dependencies (such as Abseil) to be fetched from the network. Enabling this is recommended. | OFF |
+| `protobuf_BUILD_SHARED_LIBS` | Builds shared libraries instead of static libraries. | OFF |
+| `CMAKE_CXX_STANDARD` | C++ standard version (17 or 23 is recommended). | 17 |
+| `CMAKE_CXX_FLAGS` | Compiler flags (e.g., `-march` to enable SVE2 optimization). | - |
+| `CMAKE_INSTALL_PREFIX` | Installation path. | /usr/local |
+| `protobuf_BUILD_TESTS` | Builds tests. | OFF |
+| `protobuf_BUILD_CONFORMANCE` | Builds conformance tests. | OFF |
+
+## Installation Verification
+
+After the installation is complete, run the following command to verify whether the dynamic libraries are successfully installed:
 
 ```bash
-cmake -DCMAKE_CXX_FLAGS="-O3 -march=armv9.2-a+crc+sve+sve2+sve2-bitperm -mtune=native" ..
-
-# (Optional) Advanced optimization example
-cmake -DCMAKE_CXX_FLAGS="-O3 -march=armv9.2-a+crc+sve+sve2+sve2-bitperm -flto=thin -fno-plt -fstrict-vtable-pointers" \
-      -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld -Wl,-mllvm,-inline-threshold=1350" \
-      -DCMAKE_SHARED_LINKER_FLAGS="-fuse-ld=lld -Wl,-mllvm,-inline-threshold=1350" \
-      ..
+ls -la ${PROTOBUF_INSTALL_DIR}/lib*/libprotobuf*
 ```
 
-## Running a Test
+The installation is successful if the expected output resembles the following:
 
-Go to the test directory.
-
-```bash
-cd build
+```text
+lrwxrwxrwx. 1 user user      26 Mar 20 12:19 libprotobuf-lite.so -> libprotobuf-lite.so.33.0.0
+-rwxr-xr-x. 1 user user 1138776 Mar 20 12:16 libprotobuf-lite.so.33.0.0
+lrwxrwxrwx. 1 user user      21 Mar 20 12:19 libprotobuf.so -> libprotobuf.so.33.0.0
+-rwxr-xr-x. 1 user user 4996960 Mar 20 12:16 libprotobuf.so.33.0.0
 ```
 
-Select any of the following methods:
+## Running Tests
 
-- Run all tests.
+After compilation, you can run tests to verify the build results.
 
-  ```bash
-  ctest --verbose
-  ```
+1. Create a temporary directory.
 
-- Run a specific test.
+   ```bash
+   tmp=$(mktemp -d)
+   ```
 
-  ```bash
-  ctest -R message_test
-  ```
+2. Run all tests.
 
-- Run tests in parallel.
+   ```bash
+   TEST_TEMPDIR=$tmp ctest --test-dir build --verbose
+   ```
 
-  ```bash
-  ctest --parallel $(nproc)
-  ```
+3. Run a specific test.
+
+   ```bash
+   TEST_TEMPDIR=$tmp ctest --test-dir build -R message_test
+   ```
+
+4. Run tests in parallel.
+
+   ```bash
+   TEST_TEMPDIR=$tmp ctest --test-dir build --progress --output-on-failure --parallel $(nproc)
+   ```
