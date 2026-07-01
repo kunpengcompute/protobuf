@@ -193,12 +193,12 @@ int main() {
 
    ```bash
    export PKG_CONFIG_PATH=/path/to/install/pb-bin/lib64/pkgconfig:$PKG_CONFIG_PATH
-   g++ -std=c++17 example.cc addressbook.pb.cc \
+   g++ -std=c++20 example.cc addressbook.pb.cc \
        -I/path/to/install/pb-bin/include \
        $(pkg-config --libs protobuf) \
        -o example
    ```
-   
+
 2. Run the code.
 
    ```bash

@@ -7,7 +7,7 @@ This document describes how to compile and install Kunpeng-optimized Protocol Bu
 | Item| Version Requirement| Description|
 | ------ | ---------- | ------ |
 | Hardware | Kunpeng 950 processor | Supports the NEON/SVE/SVE2 instruction set. |
-| OS| openEuler 22.03 LTS SP3 | Linux Distribution|
+| OS| openEuler 22.03 LTS SP3<br>openEuler 24.03 LTS SP3 | Linux Distribution|
 | Compiler| Clang 16.0.6 <br>GCC 12.3.1 | Supports the C++23 standard.|
 | CMake | 3.15 or later| Build tool|
 | Bazel | 7.0+ (optional)| Alternative build system|
@@ -138,20 +138,26 @@ lrwxrwxrwx. 1 user user      21 Mar 20 12:19 libprotobuf.so -> libprotobuf.so.33
 
 After compilation, you can run tests to verify the build results.
 
-1. Run all tests.
+1. Create a temporary directory.
 
    ```bash
-   ctest --test-dir build --verbose
+   tmp=$(mktemp -d)
    ```
 
-2. Run a specific test.
+2. Run all tests.
 
    ```bash
-   ctest --test-dir build -R message_test
+   TEST_TEMPDIR=$tmp ctest --test-dir build --verbose
    ```
 
-3. Run tests in parallel.
+3. Run a specific test.
 
    ```bash
-   ctest --test-dir build -j
+   TEST_TEMPDIR=$tmp ctest --test-dir build -R message_test
+   ```
+
+4. Run tests in parallel.
+
+   ```bash
+   TEST_TEMPDIR=$tmp ctest --test-dir build --progress --output-on-failure --parallel $(nproc)
    ```
