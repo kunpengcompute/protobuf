@@ -133,7 +133,7 @@ jobs:
           ref: ${{ inputs.safe-checkout }}
 
       - name: Pin Ruby version
-        uses: ruby/setup-ruby@961f85197f92e4842e3cb92a4f97bd8e010cdbaf # v1.165.0
+        uses: ruby/setup-ruby@a30dfa457ad68707b8b910ac3a244714b61c0626 # v1.320.0
         with:
           ruby-version: ${{ matrix.version }}
 
