@@ -221,8 +221,6 @@ We welcome your contributions to the community. If you have any questions/sugges
 
 ## Acknowledgments
 
-Protobuf is jointly developed by the following Huawei department:
-
-- Kunpeng Computing BoostKit Development Dept
+Protobuf is mainly contributed by Huawei.
 
 Thank you to everyone in the community for your PRs. We warmly welcome contributions to Protobuf!
