@@ -231,8 +231,6 @@ protobuf/
 
 ## 致谢
 
-Protobuf由华为公司的下列部门联合贡献：
-
-- 鲲鹏计算Boostkit开发部
+Protobuf由华为公司主导贡献。
 
 感谢来自社区的每一个PR，欢迎贡献Protocol Buffers！
