@@ -21,6 +21,10 @@
 #include <stdint.h>
 #include <string.h>
 
+#if defined(__ARM_FEATURE_SVE2)
+#include <arm_sve.h>
+#endif
+
 #ifdef __SSE4_1__
 #include <emmintrin.h>
 #include <smmintrin.h>
@@ -386,15 +390,92 @@ static int utf8_simdutf_validate(const uint8_t* data, size_t len) {
 #undef UTF8_RANGE_CARRY
 #endif  // UTF8_RANGE_ARM_NEON
 
+#if defined(__ARM_NEON) && !defined(__ARM_FEATURE_SVE2)
+/* 16-bit movemask: bit i is set iff byte i of v has its high bit set. */
+static FORCE_INLINE_ATTR inline uint32_t neon_highbit_mask(uint8x16_t v) {
+  const uint8x16_t bits = {1, 2, 4, 8, 16, 32, 64, 128,
+                           1, 2, 4, 8, 16, 32, 64, 128};
+  uint8x16_t s = vcltq_s8(vreinterpretq_s8_u8(v), vdupq_n_s8(0));
+  uint8x16_t t = vandq_u8(s, bits);
+  uint8x8_t lo = vget_low_u8(t);
+  uint8x8_t hi = vget_high_u8(t);
+  uint64x1_t c0 = vpaddl_u32(vpaddl_u16(vpaddl_u8(lo)));
+  uint64x1_t c1 = vpaddl_u32(vpaddl_u16(vpaddl_u8(hi)));
+  return (uint32_t)vget_lane_u64(c0, 0) | ((uint32_t)vget_lane_u64(c1, 0) << 8);
+}
+#endif /* __ARM_NEON && !__ARM_FEATURE_SVE2 */
+
 /* Skipping over ASCII as much as possible, per 8 bytes. It is intentional
    as most strings to check for validity consist only of 1 byte codepoints.
+ *
+ * Platform dispatch (benchmarked on Kunpeng HIP12, see Agent/src/bench-skipascii):
+ *  - SVE2 : < 16 bytes scalar head|tail, >= 16 bytes one CMPLT #0 per vector.
+ *  - NEON : 32-byte unroll + 16-byte chip + scalar head|tail (no SVE2).
+ *  - else : scalar 8-byte chunk loop + byte tail (x86 / generic).
  */
 static inline const char* utf8_range_SkipAscii(const char* data,
                                                const char* end) {
+#if defined(__ARM_FEATURE_SVE2)
+  if (end - data >= 16) {
+    const uint64_t vl = svcntb();
+    while ((uint64_t)(end - data) >= vl) {
+      svuint8_t v = svld1_u8(svptrue_b8(), (const uint8_t*)data);
+      svbool_t nz = svcmplt_n_s8(svptrue_b8(), svreinterpret_s8_u8(v), 0);
+      if (svptest_any(svptrue_b8(), nz)) {
+        return data +
+               (size_t)svcntp_b8(svptrue_b8(), svbrkb_z(svptrue_b8(), nz));
+      }
+      data += vl;
+    }
+    size_t rem = (size_t)(end - data);
+    if (rem) {
+      svbool_t pg = svwhilelt_b8((uint64_t)0, (uint64_t)rem);
+      svuint8_t v = svld1_u8(pg, (const uint8_t*)data);
+      svbool_t nz = svcmplt_n_s8(pg, svreinterpret_s8_u8(v), 0);
+      if (svptest_any(pg, nz)) {
+        return data + (size_t)svcntp_b8(pg, svbrkb_z(pg, nz));
+      }
+    }
+    return end;
+  }
+  if (end - data >= 8) {
+    uint64_t head = utf8_range_UnalignedLoad64(data);
+    uint64_t tail = utf8_range_UnalignedLoad64(end - 8);
+    if (((head | tail) & 0x8080808080808080ULL) == 0) {
+      return end;
+    }
+  }
+#elif defined(__ARM_NEON)
+  while (end - data >= 64) {
+    uint8x16_t v0 = vld1q_u8((const uint8_t*)data);
+    uint8x16_t v1 = vld1q_u8((const uint8_t*)data + 16);
+    if (vmaxvq_u8(vorrq_u8(v0, v1)) >= 0x80) {
+      uint32_t m0 = neon_highbit_mask(v0);
+      if (m0) return data + __builtin_ctz(m0);
+      return data + 16 + __builtin_ctz(neon_highbit_mask(v1));
+    }
+    data += 32;
+  }
+  while (end - data >= 16) {
+    uint8x16_t v = vld1q_u8((const uint8_t*)data);
+    if (vmaxvq_u8(v) >= 0x80) {
+      return data + __builtin_ctz(neon_highbit_mask(v));
+    }
+    data += 16;
+  }
+  if (end - data >= 8) {
+    uint64_t head = utf8_range_UnalignedLoad64(data);
+    uint64_t tail = utf8_range_UnalignedLoad64(end - 8);
+    if (((head | tail) & 0x8080808080808080ULL) == 0) {
+      return end;
+    }
+  }
+#else
   while (8 <= end - data &&
-         (utf8_range_UnalignedLoad64(data) & 0x8080808080808080) == 0) {
+         (utf8_range_UnalignedLoad64(data) & 0x8080808080808080ULL) == 0) {
     data += 8;
   }
+#endif
   while (data < end && utf8_range_AsciiIsAscii(*data)) {
     ++data;
   }
