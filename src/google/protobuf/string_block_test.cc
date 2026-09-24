@@ -154,7 +154,7 @@ TEST(StringBlockTest, TlsCacheReuseAndLifo) {
   auto clear_tls_cache = []() {
     while (safe_tls_string_block_cache.head != nullptr) {
       auto* temp = safe_tls_string_block_cache.head;
-      safe_tls_string_block_cache.head = 
+      safe_tls_string_block_cache.head =
           static_cast<decltype(temp)>(temp->next);
       internal::SizedDelete(temp, temp->size);
     }
@@ -189,7 +189,7 @@ TEST(StringBlockTest, TlsCacheCapacityLimit) {
   auto clear_tls_cache = []() {
     while (safe_tls_string_block_cache.head != nullptr) {
       auto* temp = safe_tls_string_block_cache.head;
-      safe_tls_string_block_cache.head = 
+      safe_tls_string_block_cache.head =
           static_cast<decltype(temp)>(temp->next);
       internal::SizedDelete(temp, temp->size);
     }

@@ -273,11 +273,11 @@ const char* EpsCopyInputStream::ReadArenaString(const char* ptr,
   if (!ptr) return nullptr;
 
   auto* str = s->NewString(arena);
-  #if defined(__aarch64__)
+#if defined(__aarch64__)
   ptr = AppendString(ptr, size, str);
-  #else
+#else
   ptr = ReadString(ptr, size, str);
-  #endif
+#endif
   GOOGLE_PROTOBUF_PARSER_ASSERT(ptr);
   return ptr;
 }

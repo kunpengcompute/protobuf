@@ -137,7 +137,7 @@ struct SafeTlsBlockCache {
 
   Node* head = nullptr;
   int count = 0;
-  static constexpr int kMaxCacheBlocks = 16; 
+  static constexpr int kMaxCacheBlocks = 16;
 
   ~SafeTlsBlockCache() {
     while (head != nullptr) {
@@ -184,16 +184,16 @@ inline StringBlock* StringBlock::New(StringBlock* next) {
     next_size = std::min<size_type>(size * 2, max_size());
   }
   size = RoundedSize(size);
-  #if defined(__aarch64__)
+#if defined(__aarch64__)
   void* p = safe_tls_string_block_cache.Pop(size);
   if (p != nullptr) {
     size = static_cast<SafeTlsBlockCache::Node*>(p)->size;
   } else {
     p = ::operator new(size);
   }
-  #else
+#else
   void* p = ::operator new(size);
-  #endif
+#endif
   return new (p) StringBlock(next, true, size, next_size);
 }
 
@@ -201,11 +201,11 @@ inline size_t StringBlock::Delete(StringBlock* block) {
   ABSL_DCHECK(block != nullptr);
   if (!block->heap_allocated_) return size_t{0};
   size_t size = block->allocated_size();
-  #if defined(__aarch64__)
+#if defined(__aarch64__)
   safe_tls_string_block_cache.Push(block, size);
-  #else
+#else
   internal::SizedDelete(block, size);
-  #endif
+#endif
   return size;
 }
 

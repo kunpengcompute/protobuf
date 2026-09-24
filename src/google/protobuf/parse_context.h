@@ -1216,7 +1216,7 @@ loop1:
     if (PROTOBUF_PREDICT_FALSE((tmp & 0x8080808080808080) == 0x8080808080808080)) {
       uint64_t varint;
       uint64_t first8;
-      ptr = VarintParseSlowArm(ptr, &varint, tmp);;
+      ptr = VarintParseSlowArm(ptr, &varint, tmp);
       if (PROTOBUF_PREDICT_FALSE(ptr == nullptr)) return nullptr;
       add(varint);
       goto loop1;

@@ -964,12 +964,12 @@ TEST(GeneratedMessageTctableLiteTest, RepeatedStringLookaheadAndAppendOptimizati
   ASSERT_TRUE(original_message.SerializeToString(&serialized_data));
 
   google::protobuf::Arena arena;
-  auto* parsed_message = 
+  auto* parsed_message =
       google::protobuf::Arena::Create<protobuf_unittest::TestAllTypes>(&arena);
 
   ASSERT_TRUE(parsed_message->ParseFromString(serialized_data));
 
-  ASSERT_EQ(parsed_message->repeated_string_size(), kItemCount) 
+  ASSERT_EQ(parsed_message->repeated_string_size(), kItemCount)
       << "Repeated field size mismatch after pre-allocation.";
 
   for (int i = 0; i < kItemCount; ++i) {
@@ -981,7 +981,7 @@ TEST(GeneratedMessageTctableLiteTest, RepeatedStringLookaheadAndAppendOptimizati
   parsed_message->Clear();
   ASSERT_TRUE(parsed_message->ParseFromString(serialized_data));
   ASSERT_EQ(parsed_message->repeated_string_size(), kItemCount);
-  ASSERT_EQ(parsed_message->repeated_string(kItemCount - 1), 
+  ASSERT_EQ(parsed_message->repeated_string(kItemCount - 1),
             kLongStringBase + std::to_string(kItemCount - 1));
 }
 

@@ -268,10 +268,8 @@ static FORCE_INLINE_ATTR inline uint8x16_t utf8_simdutf_check_special_cases(
   return vandq_u8(vandq_u8(byte_1_high, byte_1_low), byte_2_high);
 }
 
-static FORCE_INLINE_ATTR inline uint8x16_t
-utf8_simdutf_check_multibyte_lengths(const uint8x16_t input,
-                                     const uint8x16_t prev_input,
-                                     const uint8x16_t sc) {
+static FORCE_INLINE_ATTR inline uint8x16_t utf8_simdutf_check_multibyte_lengths(
+    const uint8x16_t input, const uint8x16_t prev_input, const uint8x16_t sc) {
   /* prev<2> / prev<3>: bytes shifted in from the previous block. */
   const uint8x16_t prev2 = vextq_u8(prev_input, input, 16 - 2);
   const uint8x16_t prev3 = vextq_u8(prev_input, input, 16 - 3);
@@ -293,9 +291,9 @@ static FORCE_INLINE_ATTR inline uint8x16_t utf8_simdutf_is_incomplete(
     const uint8x16_t input) {
   /* ... 1111____ 111_____ 11______ at the very end would be too short. */
   static const uint8_t max_arr[16] = {255,         255, 255, 255, 255, 255,
-                                       255,         255, 255, 255, 255, 255,
-                                       255,         0xF0u - 1,
-                                       0xE0u - 1,   0xC0u - 1};
+                                      255,         255, 255, 255, 255, 255,
+                                      255,         0xF0u - 1,
+                                      0xE0u - 1,   0xC0u - 1};
   /* gt_bits == saturating_sub. */
   return vqsubq_u8(input, vld1q_u8(max_arr));
 }

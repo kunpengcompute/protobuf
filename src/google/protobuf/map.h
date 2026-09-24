@@ -967,7 +967,7 @@ class KeyMapBase : public UntypedMapBase {
   // If the key is a duplicate, it inserts the new node and returns the old one.
   // Gives ownership to the caller.
   // If the key is unique, it returns `nullptr`.
-  #if defined(__aarch64__)
+#if defined(__aarch64__)
   KeyNode* InsertOrReplaceNode(KeyNode* node) {
     return InsertNodeImpl(node, true);
   }
@@ -994,7 +994,7 @@ class KeyMapBase : public UntypedMapBase {
     ++num_elements_;
     return to_erase;
   }
-  #else
+#else
   KeyNode* InsertOrReplaceNode(KeyNode* node) {
     KeyNode* to_erase = nullptr;
     auto p = this->FindHelper(node->key());
@@ -1009,7 +1009,7 @@ class KeyMapBase : public UntypedMapBase {
     ++num_elements_;
     return to_erase;
   }
-  #endif
+#endif
 
   // Insert the given Node in bucket b.  If that would make bucket b too big,
   // and bucket b is not a tree, create a tree for buckets b.
@@ -1058,7 +1058,7 @@ class KeyMapBase : public UntypedMapBase {
   // destroy the expected big-O bounds for some operations. By having the
   // policy that sometimes we resize down as well as up, clients can easily
   // keep O(size()) = O(number of buckets) if they want that.
-  #if defined(__aarch64__)
+#if defined(__aarch64__)
   bool ResizeIfLoadIsOutOfRangeImpl(size_type new_size, bool allow_shrink) {
     const size_type hi_cutoff = CalculateHiCutoff(num_buckets_);
     const size_type lo_cutoff = hi_cutoff / 4;
@@ -1089,7 +1089,7 @@ class KeyMapBase : public UntypedMapBase {
     }
     return false;
   }
-  #else
+#else
   bool ResizeIfLoadIsOutOfRange(size_type new_size) {
     const size_type hi_cutoff = CalculateHiCutoff(num_buckets_);
     const size_type lo_cutoff = hi_cutoff / 4;
@@ -1120,7 +1120,7 @@ class KeyMapBase : public UntypedMapBase {
     }
     return false;
   }
-  #endif
+#endif
 
   // Resize to the given number of buckets.
   void Resize(map_index_t new_num_buckets) {
@@ -1159,7 +1159,7 @@ class KeyMapBase : public UntypedMapBase {
     } while (node != nullptr);
   }
 
-  #if defined(__aarch64__)
+#if defined(__aarch64__)
   void InternalReserve(size_t additional_count) {
     size_t expected_size = this->num_elements_ + additional_count;
     if (expected_size > CalculateHiCutoff(this->num_buckets_)) {
@@ -1180,7 +1180,7 @@ class KeyMapBase : public UntypedMapBase {
       }
     }
   }
-  #endif
+#endif
 
   map_index_t BucketNumber(typename TS::ViewType k) const {
     ABSL_DCHECK_EQ(BucketNumberFromHash(hash_function()(k)),

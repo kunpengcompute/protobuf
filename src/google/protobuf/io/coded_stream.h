@@ -936,21 +936,21 @@ class PROTOBUF_EXPORT EpsCopyOutputStream {
   
 #if defined(__ARM_FEATURE_SVE2)
   template <typename T>
-  PROTOBUF_ALWAYS_INLINE uint8_t* varint_encode32_sve(const T* loc, uint8_t* ptr, int Size){
-    static_assert(std::is_same_v<T, uint32_t> || std::is_same_v<T, int32_t>,"T must be either uint32_t or int32_t");
+  PROTOBUF_ALWAYS_INLINE uint8_t* varint_encode32_sve(const T* loc, uint8_t* ptr, int Size) {
+    static_assert(std::is_same_v<T, uint32_t> || std::is_same_v<T, int32_t>, "T must be either uint32_t or int32_t");
     svbool_t pt = svptrue_b8();
     svuint32_t dep_mask = svdup_u32(0b1111111011111110111111101111111);
     alignas(16) static const uint32_t TAG_TABLE[8]={0, 0, 0x80, 0x8080, 0x808080, 0x80808080};
     alignas(16) static const uint32_t EXT_TABLE[8]={0, 0xFF, 0xFFFF, 0xFFFFFF, 0xFFFFFFFF};
     svuint32_t tag_table = svld1(pt, TAG_TABLE);
     svuint32_t ext_table = svld1(pt, EXT_TABLE);
-    svuint8_t fast_index = svindex_u8(0,4);
+    svuint8_t fast_index = svindex_u8(0, 4);
     const uint32_t* data = reinterpret_cast<const uint32_t*>(loc);
 
     int i=0;
-    for(; i + 8 < Size; i+=8){
+    for (; i + 8 < Size; i += 8) {
       svuint32_t origin_value = svld1(pt, data + i);
-      if constexpr (std::is_same_v<T, int32_t>){
+      if constexpr (std::is_same_v<T, int32_t>) {
         svint32_t  v_s   = svreinterpret_s32_u32(origin_value);
         svuint32_t left  = svlsl_n_u32_z(pt, origin_value, 1);
         svint32_t  sign  = svasr_n_s32_z(pt, v_s, 31);
@@ -958,13 +958,13 @@ class PROTOBUF_EXPORT EpsCopyOutputStream {
         origin_value = sveor_u32_z(pt, left, sign_u);
       }
       svbool_t p1 = svcmpgt_n_u32(pt, origin_value, 0x7F);
-      if( ! svptest_any(pt, p1)){
+      if (!svptest_any(pt, p1)) {
         svuint8_t fast_data = svreinterpret_u8_u32(origin_value);
         svuint8_t fast_lookup = svtbl(fast_data, fast_index);
         svuint64_t fast_result = svreinterpret_u64_u8(fast_lookup);
         ptr = EnsureSpace(ptr);
         svst1(svwhilelt_b64(0u, 1u), reinterpret_cast<uint64_t*>(ptr), fast_result);
-        ptr+=8;
+        ptr += 8;
         continue;
       }
       svuint32_t data_value = svbdep(origin_value, dep_mask);
@@ -974,13 +974,13 @@ class PROTOBUF_EXPORT EpsCopyOutputStream {
       svuint32_t byte_count = svlsr_n_u32_x(pt, bits_count, 3);
 
       svbool_t p5 = svcmpgt_n_u32(pt, origin_value, 0xFFFFFFF);
-      if(svptest_any(pt, p5)){
+      if (svptest_any(pt, p5)) {
         uint32_t remain_buffer[8];
         uint32_t* remain_bits;
-        if constexpr (std::is_same_v<T, int32_t>){
+        if constexpr (std::is_same_v<T, int32_t>) {
           svst1(pt, remain_buffer, origin_value);
           remain_bits = remain_buffer;
-        }else{
+        } else {
           remain_bits = const_cast<uint32_t*>(data) + i;
         }
         byte_count = svsel(p5, svdup_n_u32(5), byte_count);
@@ -990,11 +990,13 @@ class PROTOBUF_EXPORT EpsCopyOutputStream {
         uint32_t len[8];
         svst1(pt, len, byte_count);
         svst1(pt, val, sepint_value);
-        for(int k=0;k<8;k++){
+        for (int k=0;k<8;k++) {
           ptr = EnsureSpace(ptr);
           *(reinterpret_cast<uint32_t*>(ptr)) = val[k];
-          ptr+=len[k];
-          if(len[k]==5){*(ptr-1) = static_cast<uint8_t>(remain_bits[k] >> 28);}
+          ptr += len[k];
+          if (len[k] == 5) {
+            *(ptr-1) = static_cast<uint8_t>(remain_bits[k] >> 28);
+          }
         }
         continue;
       }
@@ -1010,17 +1012,17 @@ class PROTOBUF_EXPORT EpsCopyOutputStream {
       svst1(pt, len, pair_len);
       uint64_t val[4];
       svst1(pt, val, connect_value);
-      for(int k = 0; k < 4;k++){
+      for (int k = 0; k < 4; k++) {
         ptr = EnsureSpace(ptr);
         *(reinterpret_cast<uint64_t*>(ptr)) = val[k];
-        ptr+=len[k];
+        ptr += len[k];
       }
     }
-    for(;i<Size;i++){
+    for (; i < Size; i++) {
       ptr = EnsureSpace(ptr);
-      if constexpr (std::is_same_v<T, int32_t>){
+      if constexpr (std::is_same_v<T, int32_t>) {
         ptr = UnsafeVarint(ZigZagEncode32(loc[i]), ptr);
-      }else{
+      } else {
         ptr = UnsafeVarint(loc[i], ptr);
       }
     }
@@ -1028,22 +1030,24 @@ class PROTOBUF_EXPORT EpsCopyOutputStream {
   }
 
   template <typename T>
-  PROTOBUF_ALWAYS_INLINE uint8_t* varint_encode64_sve(const T* loc, uint8_t* ptr, int Size){
-    static_assert(std::is_same_v<T, uint64_t> || std::is_same_v<T, int64_t>,"T must be either uint64_t or int64_t");
+  PROTOBUF_ALWAYS_INLINE uint8_t* varint_encode64_sve(const T* loc, uint8_t* ptr, int Size) {
+    static_assert(std::is_same_v<T, uint64_t> || std::is_same_v<T, int64_t>, "T must be either uint64_t or int64_t");
     svbool_t pt = svptrue_b8();
     svuint64_t dep_mask = svdup_u64(0x7f7f7f7f7f7f7f7fULL);
-    alignas(16) static const uint64_t TAG_TABLE1[4]={0ULL, 0x80ULL, 0x8080ULL, 0x808080ULL};
-    alignas(16) static const uint64_t TAG_TABLE2[4]={0x80808080ULL, 0x8080808080ULL, 0x808080808080ULL, 0x80808080808080ULL};
+    alignas(16) static const uint64_t TAG_TABLE1[4] = {0ULL, 0x80ULL, 0x8080ULL, 0x808080ULL};
+    alignas(16) static const uint64_t TAG_TABLE2[4] = {
+        0x80808080ULL, 0x8080808080ULL, 0x808080808080ULL, 0x80808080808080ULL
+    };
     svuint64_t tag_table1 = svld1(pt, TAG_TABLE1);
     svuint64_t tag_table2 = svld1(pt, TAG_TABLE2);
     svuint64x2_t tag_table = svcreate2_u64(tag_table1, tag_table2);
-    svuint8_t fast_index = svindex_u8(0,8);
+    svuint8_t fast_index = svindex_u8(0, 8);
     const uint64_t* data = reinterpret_cast<const uint64_t*>(loc);
 
     int i=0;
-    for(; i + 4 < Size; i+=4){
+    for (; i + 4 < Size; i += 4) {
       svuint64_t origin_value = svld1(pt, data + i);
-      if constexpr (std::is_same_v<T, int64_t>){
+      if constexpr (std::is_same_v<T, int64_t>) {
         svint64_t  v_s   = svreinterpret_s64_u64(origin_value);
         svuint64_t left  = svlsl_n_u64_z(pt, origin_value, 1);
         svint64_t  sign  = svasr_n_s64_z(pt, v_s, 63);
@@ -1051,29 +1055,29 @@ class PROTOBUF_EXPORT EpsCopyOutputStream {
         origin_value = sveor_u64_z(pt, left, sign_u);
       }
       svbool_t p1 = svcmpgt_n_u64(pt, origin_value, 0x7FULL);
-      if( ! svptest_any(pt, p1)){
+      if (!svptest_any(pt, p1)) {
         svuint8_t fast_data = svreinterpret_u8_u64(origin_value);
         svuint8_t fast_lookup = svtbl(fast_data, fast_index);
         svuint32_t fast_result = svreinterpret_u32_u8(fast_lookup);
         ptr = EnsureSpace(ptr);
         svst1(svwhilelt_b32(0u, 1u), reinterpret_cast<uint32_t*>(ptr), fast_result);
-        ptr+=4;
+        ptr += 4;
         continue;
       }
       svuint64_t data_value = svbdep(origin_value, dep_mask);
       svuint64_t cnt_val = svorr_n_u64_x(pt, data_value, 1);
       svuint64_t lz_count = svclz_x(pt, cnt_val);
-      svuint64_t bits_count = svsubr_n_u64_x(pt, lz_count, 64 + 7 - 8 );
+      svuint64_t bits_count = svsubr_n_u64_x(pt, lz_count, 64 + 7 - 8);
       svuint64_t byte_count = svlsr_n_u64_x(pt, bits_count, 3);
 
       svbool_t p9 = svcmpgt_n_u64(pt, origin_value, 0xffffffffffffffULL);
-      if (svptest_any(pt, p9)){
+      if (svptest_any(pt, p9)) {
         uint64_t remain_buffer[4];
         uint64_t* remain_bits;
-        if constexpr (std::is_same_v<T, int64_t>){
+        if constexpr (std::is_same_v<T, int64_t>) {
           svst1(pt, remain_buffer, origin_value);
           remain_bits = remain_buffer;
-        }else{
+        } else {
           remain_bits = const_cast<uint64_t*>(data) + i;
         }
         svuint64_t tag_value = svtbl2(tag_table, byte_count);
@@ -1087,14 +1091,14 @@ class PROTOBUF_EXPORT EpsCopyOutputStream {
         uint64_t val[4];
         svst1(pt, len, byte_count);
         svst1(pt, val, encode_value);
-        for(int k = 0; k < 4;k++){
+        for (int k = 0; k < 4; k++) {
           ptr = EnsureSpace(ptr);
           *(reinterpret_cast<uint64_t*>(ptr)) = val[k];
-          if(len[k]==9){*(ptr+8) = static_cast<uint8_t>(remain_bits[k] >> 56);}
-          if(len[k]==10){*(ptr+8) = static_cast<uint8_t>(remain_bits[k] >> 56); *(ptr+9) = 1;}
-          ptr+=len[k];
+          if (len[k]==9) {*(ptr+8) = static_cast<uint8_t>(remain_bits[k] >> 56);}
+          if (len[k]==10) {*(ptr+8) = static_cast<uint8_t>(remain_bits[k] >> 56); *(ptr+9) = 1;}
+          ptr += len[k];
         }
-      }else{
+      } else {
         svuint64_t tag_value = svtbl2(tag_table, byte_count);
         byte_count = svadd_n_u64_m(pt, byte_count, 1);
         svuint64_t encode_value = svorr_x(pt, tag_value, data_value);
@@ -1102,18 +1106,18 @@ class PROTOBUF_EXPORT EpsCopyOutputStream {
         uint64_t val[4];
         svst1(pt, len, byte_count);
         svst1(pt, val, encode_value);
-        for(int k = 0; k < 4;k++){
+        for (int k = 0; k < 4; k++) {
           ptr = EnsureSpace(ptr);
           *(reinterpret_cast<uint64_t*>(ptr)) = val[k];
-          ptr+=len[k];
+          ptr += len[k];
         }
       }
     }
-    for(;i<Size;i++){
+    for (; i<Size; i++) {
       ptr = EnsureSpace(ptr);
-      if constexpr (std::is_same_v<T, int64_t>){
+      if constexpr (std::is_same_v<T, int64_t>) {
         ptr = UnsafeVarint(ZigZagEncode64(loc[i]), ptr);
-      }else{
+      } else {
         ptr = UnsafeVarint(loc[i], ptr);
       }
     }
@@ -1121,7 +1125,7 @@ class PROTOBUF_EXPORT EpsCopyOutputStream {
   }
 #endif // __ARM_FEATURE_SVE2
 
-  #if defined(__aarch64__)
+#if defined(__aarch64__)
   //  EncodeBytes finction encodes an uint value by selecting 7 bits from lsb and adding the msb in each loop
   //  Varints in different length need different loop counts
   //  The fixed loop will be unrolled by compiler automantically
@@ -1186,7 +1190,7 @@ class PROTOBUF_EXPORT EpsCopyOutputStream {
     }
     return ptr;
   }
-  #endif
+#endif
 
   PROTOBUF_ALWAYS_INLINE static uint8_t* UnsafeWriteSize(uint32_t value,
                                                          uint8_t* ptr) {
