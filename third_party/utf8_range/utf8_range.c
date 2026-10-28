@@ -21,10 +21,22 @@
 #include <stdint.h>
 #include <string.h>
 
+#if defined(__ARM_FEATURE_SVE2)
+#include <arm_sve.h>
+#endif
+
 #ifdef __SSE4_1__
 #include <emmintrin.h>
 #include <smmintrin.h>
 #include <tmmintrin.h>
+#endif
+
+/* ARM AArch64 NEON path, analogous to the __SSE4_1__ path above. When this
+ * macro is defined we use the simdutf "utf8_lookup4" validation algorithm
+ * (ported from simdutf to plain C with NEON intrinsics). */
+#if defined(__aarch64__) || defined(_M_ARM64)
+#define UTF8_RANGE_ARM_NEON 1
+#include <arm_neon.h>
 #endif
 
 #if defined(__GNUC__)
@@ -160,15 +172,308 @@ static inline int utf8_range_CodepointSkipBackwards(int32_t codepoint_word) {
 }
 #endif  // __SSE4_1__
 
+#ifdef UTF8_RANGE_ARM_NEON
+/* C/NEON port of the simdutf "utf8_lookup4" validation algorithm
+ * (src/generic/utf8_validation/utf8_lookup4_algorithm.h). The original C++
+ * relies on simdutf's simd8/simd8x64 abstraction; here every operation is
+ * expressed directly with AArch64 NEON intrinsics.
+ */
+
+/* Error classification bit flags (see simdutf check_special_cases). */
+#define UTF8_RANGE_TOO_SHORT (1 << 0)      /* 11______ 0_______ / 11______ 11______ */
+#define UTF8_RANGE_TOO_LONG (1 << 1)       /* 0_______ 10______ */
+#define UTF8_RANGE_OVERLONG_3 (1 << 2)     /* 11100000 100_____ */
+#define UTF8_RANGE_TOO_LARGE (1 << 3)      /* 11110100 1001____ ... */
+#define UTF8_RANGE_SURROGATE (1 << 4)      /* 11101101 101_____ */
+#define UTF8_RANGE_OVERLONG_2 (1 << 5)     /* 1100000_ 10______ */
+#define UTF8_RANGE_TOO_LARGE_1000 (1 << 6) /* 11110101 1000____ ... */
+#define UTF8_RANGE_OVERLONG_4 (1 << 6)     /* 11110000 1000____ */
+#define UTF8_RANGE_TWO_CONTS (1 << 7)      /* 10______ 10______ */
+/* These all have ____ in byte 1. */
+#define UTF8_RANGE_CARRY \
+  (UTF8_RANGE_TOO_SHORT | UTF8_RANGE_TOO_LONG | UTF8_RANGE_TWO_CONTS)
+
+static FORCE_INLINE_ATTR inline uint8x16_t utf8_simdutf_check_special_cases(
+    const uint8x16_t input, const uint8x16_t prev1) {
+  static const uint8_t byte_1_high_arr[16] = {
+      /* 0_______ <ASCII in byte 1> */
+      UTF8_RANGE_TOO_LONG, UTF8_RANGE_TOO_LONG, UTF8_RANGE_TOO_LONG,
+      UTF8_RANGE_TOO_LONG, UTF8_RANGE_TOO_LONG, UTF8_RANGE_TOO_LONG,
+      UTF8_RANGE_TOO_LONG, UTF8_RANGE_TOO_LONG,
+      /* 10______ <continuation in byte 1> */
+      UTF8_RANGE_TWO_CONTS, UTF8_RANGE_TWO_CONTS, UTF8_RANGE_TWO_CONTS,
+      UTF8_RANGE_TWO_CONTS,
+      /* 1100____ <two byte lead in byte 1> */
+      UTF8_RANGE_TOO_SHORT | UTF8_RANGE_OVERLONG_2,
+      /* 1101____ <two byte lead in byte 1> */
+      UTF8_RANGE_TOO_SHORT,
+      /* 1110____ <three byte lead in byte 1> */
+      UTF8_RANGE_TOO_SHORT | UTF8_RANGE_OVERLONG_3 | UTF8_RANGE_SURROGATE,
+      /* 1111____ <four+ byte lead in byte 1> */
+      UTF8_RANGE_TOO_SHORT | UTF8_RANGE_TOO_LARGE | UTF8_RANGE_TOO_LARGE_1000 |
+          UTF8_RANGE_OVERLONG_4};
+  static const uint8_t byte_1_low_arr[16] = {
+      /* ____0000 */
+      UTF8_RANGE_CARRY | UTF8_RANGE_OVERLONG_3 | UTF8_RANGE_OVERLONG_2 |
+          UTF8_RANGE_OVERLONG_4,
+      /* ____0001 */
+      UTF8_RANGE_CARRY | UTF8_RANGE_OVERLONG_2,
+      /* ____001_ */
+      UTF8_RANGE_CARRY, UTF8_RANGE_CARRY,
+      /* ____0100 */
+      UTF8_RANGE_CARRY | UTF8_RANGE_TOO_LARGE,
+      /* ____0101 */
+      UTF8_RANGE_CARRY | UTF8_RANGE_TOO_LARGE | UTF8_RANGE_TOO_LARGE_1000,
+      /* ____011_ */
+      UTF8_RANGE_CARRY | UTF8_RANGE_TOO_LARGE | UTF8_RANGE_TOO_LARGE_1000,
+      UTF8_RANGE_CARRY | UTF8_RANGE_TOO_LARGE | UTF8_RANGE_TOO_LARGE_1000,
+      /* ____1___ */
+      UTF8_RANGE_CARRY | UTF8_RANGE_TOO_LARGE | UTF8_RANGE_TOO_LARGE_1000,
+      UTF8_RANGE_CARRY | UTF8_RANGE_TOO_LARGE | UTF8_RANGE_TOO_LARGE_1000,
+      UTF8_RANGE_CARRY | UTF8_RANGE_TOO_LARGE | UTF8_RANGE_TOO_LARGE_1000,
+      UTF8_RANGE_CARRY | UTF8_RANGE_TOO_LARGE | UTF8_RANGE_TOO_LARGE_1000,
+      UTF8_RANGE_CARRY | UTF8_RANGE_TOO_LARGE | UTF8_RANGE_TOO_LARGE_1000,
+      /* ____1101 */
+      UTF8_RANGE_CARRY | UTF8_RANGE_TOO_LARGE | UTF8_RANGE_TOO_LARGE_1000 |
+          UTF8_RANGE_SURROGATE,
+      UTF8_RANGE_CARRY | UTF8_RANGE_TOO_LARGE | UTF8_RANGE_TOO_LARGE_1000,
+      UTF8_RANGE_CARRY | UTF8_RANGE_TOO_LARGE | UTF8_RANGE_TOO_LARGE_1000};
+  static const uint8_t byte_2_high_arr[16] = {
+      /* ________ 0_______ <ASCII in byte 2> */
+      UTF8_RANGE_TOO_SHORT, UTF8_RANGE_TOO_SHORT, UTF8_RANGE_TOO_SHORT,
+      UTF8_RANGE_TOO_SHORT, UTF8_RANGE_TOO_SHORT, UTF8_RANGE_TOO_SHORT,
+      UTF8_RANGE_TOO_SHORT, UTF8_RANGE_TOO_SHORT,
+      /* ________ 1000____ */
+      UTF8_RANGE_TOO_LONG | UTF8_RANGE_OVERLONG_2 | UTF8_RANGE_TWO_CONTS |
+          UTF8_RANGE_OVERLONG_3 | UTF8_RANGE_TOO_LARGE_1000 |
+          UTF8_RANGE_OVERLONG_4,
+      /* ________ 1001____ */
+      UTF8_RANGE_TOO_LONG | UTF8_RANGE_OVERLONG_2 | UTF8_RANGE_TWO_CONTS |
+          UTF8_RANGE_OVERLONG_3 | UTF8_RANGE_TOO_LARGE,
+      /* ________ 101_____ */
+      UTF8_RANGE_TOO_LONG | UTF8_RANGE_OVERLONG_2 | UTF8_RANGE_TWO_CONTS |
+          UTF8_RANGE_SURROGATE | UTF8_RANGE_TOO_LARGE,
+      UTF8_RANGE_TOO_LONG | UTF8_RANGE_OVERLONG_2 | UTF8_RANGE_TWO_CONTS |
+          UTF8_RANGE_SURROGATE | UTF8_RANGE_TOO_LARGE,
+      /* ________ 11______ */
+      UTF8_RANGE_TOO_SHORT, UTF8_RANGE_TOO_SHORT, UTF8_RANGE_TOO_SHORT,
+      UTF8_RANGE_TOO_SHORT};
+
+  const uint8x16_t byte_1_high =
+      vqtbl1q_u8(vld1q_u8(byte_1_high_arr), vshrq_n_u8(prev1, 4));
+  const uint8x16_t byte_1_low =
+      vqtbl1q_u8(vld1q_u8(byte_1_low_arr), vandq_u8(prev1, vdupq_n_u8(0x0F)));
+  const uint8x16_t byte_2_high =
+      vqtbl1q_u8(vld1q_u8(byte_2_high_arr), vshrq_n_u8(input, 4));
+  return vandq_u8(vandq_u8(byte_1_high, byte_1_low), byte_2_high);
+}
+
+static FORCE_INLINE_ATTR inline uint8x16_t utf8_simdutf_check_multibyte_lengths(
+    const uint8x16_t input, const uint8x16_t prev_input, const uint8x16_t sc) {
+  /* prev<2> / prev<3>: bytes shifted in from the previous block. */
+  const uint8x16_t prev2 = vextq_u8(prev_input, input, 16 - 2);
+  const uint8x16_t prev3 = vextq_u8(prev_input, input, 16 - 3);
+  /* must_be_2_3_continuation: only 111_____ leads survive the first
+   * saturating sub, only 1111____ leads survive the second. */
+  const uint8x16_t is_third_byte = vqsubq_u8(prev2, vdupq_n_u8(0xE0u - 1));
+  const uint8x16_t is_fourth_byte = vqsubq_u8(prev3, vdupq_n_u8(0xF0u - 1));
+  const uint8x16_t combined = vorrq_u8(is_third_byte, is_fourth_byte);
+  /* Turn into a boolean mask (all 1s where a 2nd/3rd continuation is owed). */
+  const uint8x16_t must23 =
+      vcgtq_s8(vreinterpretq_s8_u8(combined), vdupq_n_s8(0));
+  const uint8x16_t must23_80 = vandq_u8(must23, vdupq_n_u8(0x80));
+  return veorq_u8(must23_80, sc);
+}
+
+/* Returns nonzero (in any lane) if there are incomplete multibyte characters
+ * at the end of the block. */
+static FORCE_INLINE_ATTR inline uint8x16_t utf8_simdutf_is_incomplete(
+    const uint8x16_t input) {
+  /* ... 1111____ 111_____ 11______ at the very end would be too short. */
+  static const uint8_t max_arr[16] = {255,         255, 255, 255, 255, 255,
+                                      255,         255, 255, 255, 255, 255,
+                                      255,         0xF0u - 1,
+                                      0xE0u - 1,   0xC0u - 1};
+  /* gt_bits == saturating_sub. */
+  return vqsubq_u8(input, vld1q_u8(max_arr));
+}
+
+/* Checks one 64-byte block (4 NEON chunks), updating the running error,
+ * previous-input and previous-incomplete state. Mirrors simdutf's
+ * utf8_checker::check_next_input. */
+static FORCE_INLINE_ATTR inline void utf8_simdutf_check_block(
+    const uint8_t* in, uint8x16_t* error, uint8x16_t* prev_input,
+    uint8x16_t* prev_incomplete) {
+  const uint8x16_t c0 = vld1q_u8(in + 0);
+  const uint8x16_t c1 = vld1q_u8(in + 16);
+  const uint8x16_t c2 = vld1q_u8(in + 32);
+  const uint8x16_t c3 = vld1q_u8(in + 48);
+
+  /* ASCII fast path: if no high bit is set anywhere in the block, the only
+   * possible error is an unfinished character carried over from the previous
+   * block. */
+  const uint8x16_t or_all =
+      vorrq_u8(vorrq_u8(c0, c1), vorrq_u8(c2, c3));
+  if (vmaxvq_u8(or_all) < 0x80) {
+    *error = vorrq_u8(*error, *prev_incomplete);
+    return;
+  }
+
+  {
+    uint8x16_t prev1;
+    uint8x16_t sc;
+
+    prev1 = vextq_u8(*prev_input, c0, 16 - 1);
+    sc = utf8_simdutf_check_special_cases(c0, prev1);
+    *error = vorrq_u8(*error,
+                      utf8_simdutf_check_multibyte_lengths(c0, *prev_input, sc));
+
+    prev1 = vextq_u8(c0, c1, 16 - 1);
+    sc = utf8_simdutf_check_special_cases(c1, prev1);
+    *error =
+        vorrq_u8(*error, utf8_simdutf_check_multibyte_lengths(c1, c0, sc));
+
+    prev1 = vextq_u8(c1, c2, 16 - 1);
+    sc = utf8_simdutf_check_special_cases(c2, prev1);
+    *error =
+        vorrq_u8(*error, utf8_simdutf_check_multibyte_lengths(c2, c1, sc));
+
+    prev1 = vextq_u8(c2, c3, 16 - 1);
+    sc = utf8_simdutf_check_special_cases(c3, prev1);
+    *error =
+        vorrq_u8(*error, utf8_simdutf_check_multibyte_lengths(c3, c2, sc));
+
+    *prev_incomplete = utf8_simdutf_is_incomplete(c3);
+    *prev_input = c3;
+  }
+}
+
+/* Returns 1 if |data| (|len| bytes) is a structurally valid UTF-8 sequence,
+ * 0 otherwise. This is the simdutf algorithm, which only answers yes/no and
+ * does not compute a valid prefix length. */
+static int utf8_simdutf_validate(const uint8_t* data, size_t len) {
+  uint8x16_t error = vdupq_n_u8(0);
+  uint8x16_t prev_input = vdupq_n_u8(0);
+  uint8x16_t prev_incomplete = vdupq_n_u8(0);
+  size_t pos = 0;
+
+  while (pos + 64 <= len) {
+    utf8_simdutf_check_block(data + pos, &error, &prev_input, &prev_incomplete);
+    pos += 64;
+  }
+
+  /* Tail: copy the remainder into a zero-padded 64-byte block. */
+  {
+    uint8_t block[64];
+    memset(block, 0, sizeof(block));
+    memcpy(block, data + pos, len - pos);
+    utf8_simdutf_check_block(block, &error, &prev_input, &prev_incomplete);
+  }
+
+  /* check_eof: a trailing incomplete character is an error. */
+  error = vorrq_u8(error, prev_incomplete);
+
+  return vmaxvq_u8(error) == 0;
+}
+
+#undef UTF8_RANGE_TOO_SHORT
+#undef UTF8_RANGE_TOO_LONG
+#undef UTF8_RANGE_OVERLONG_3
+#undef UTF8_RANGE_TOO_LARGE
+#undef UTF8_RANGE_SURROGATE
+#undef UTF8_RANGE_OVERLONG_2
+#undef UTF8_RANGE_TOO_LARGE_1000
+#undef UTF8_RANGE_OVERLONG_4
+#undef UTF8_RANGE_TWO_CONTS
+#undef UTF8_RANGE_CARRY
+#endif  // UTF8_RANGE_ARM_NEON
+
+#if defined(__ARM_NEON) && !defined(__ARM_FEATURE_SVE2)
+/* 16-bit movemask: bit i is set iff byte i of v has its high bit set. */
+static FORCE_INLINE_ATTR inline uint32_t neon_highbit_mask(uint8x16_t v) {
+  const uint8x16_t bits = {1, 2, 4, 8, 16, 32, 64, 128,
+                           1, 2, 4, 8, 16, 32, 64, 128};
+  uint8x16_t s = vcltq_s8(vreinterpretq_s8_u8(v), vdupq_n_s8(0));
+  uint8x16_t t = vandq_u8(s, bits);
+  uint8x8_t lo = vget_low_u8(t);
+  uint8x8_t hi = vget_high_u8(t);
+  uint64x1_t c0 = vpaddl_u32(vpaddl_u16(vpaddl_u8(lo)));
+  uint64x1_t c1 = vpaddl_u32(vpaddl_u16(vpaddl_u8(hi)));
+  return (uint32_t)vget_lane_u64(c0, 0) | ((uint32_t)vget_lane_u64(c1, 0) << 8);
+}
+#endif /* __ARM_NEON && !__ARM_FEATURE_SVE2 */
+
 /* Skipping over ASCII as much as possible, per 8 bytes. It is intentional
    as most strings to check for validity consist only of 1 byte codepoints.
+ *
+ * Platform dispatch (benchmarked on Kunpeng HIP12, see Agent/src/bench-skipascii):
+ *  - SVE2 : < 16 bytes scalar head|tail, >= 16 bytes one CMPLT #0 per vector.
+ *  - NEON : 32-byte unroll + 16-byte chip + scalar head|tail (no SVE2).
+ *  - else : scalar 8-byte chunk loop + byte tail (x86 / generic).
  */
 static inline const char* utf8_range_SkipAscii(const char* data,
                                                const char* end) {
+#if defined(__ARM_FEATURE_SVE2)
+  if (end - data >= 16) {
+    const uint64_t vl = svcntb();
+    while ((uint64_t)(end - data) >= vl) {
+      svuint8_t v = svld1_u8(svptrue_b8(), (const uint8_t*)data);
+      svbool_t nz = svcmplt_n_s8(svptrue_b8(), svreinterpret_s8_u8(v), 0);
+      if (svptest_any(svptrue_b8(), nz)) {
+        return data +
+               (size_t)svcntp_b8(svptrue_b8(), svbrkb_z(svptrue_b8(), nz));
+      }
+      data += vl;
+    }
+    size_t rem = (size_t)(end - data);
+    if (rem) {
+      svbool_t pg = svwhilelt_b8((uint64_t)0, (uint64_t)rem);
+      svuint8_t v = svld1_u8(pg, (const uint8_t*)data);
+      svbool_t nz = svcmplt_n_s8(pg, svreinterpret_s8_u8(v), 0);
+      if (svptest_any(pg, nz)) {
+        return data + (size_t)svcntp_b8(pg, svbrkb_z(pg, nz));
+      }
+    }
+    return end;
+  }
+  if (end - data >= 8) {
+    uint64_t head = utf8_range_UnalignedLoad64(data);
+    uint64_t tail = utf8_range_UnalignedLoad64(end - 8);
+    if (((head | tail) & 0x8080808080808080ULL) == 0) {
+      return end;
+    }
+  }
+#elif defined(__ARM_NEON)
+  while (end - data >= 64) {
+    uint8x16_t v0 = vld1q_u8((const uint8_t*)data);
+    uint8x16_t v1 = vld1q_u8((const uint8_t*)data + 16);
+    if (vmaxvq_u8(vorrq_u8(v0, v1)) >= 0x80) {
+      uint32_t m0 = neon_highbit_mask(v0);
+      if (m0) return data + __builtin_ctz(m0);
+      return data + 16 + __builtin_ctz(neon_highbit_mask(v1));
+    }
+    data += 32;
+  }
+  while (end - data >= 16) {
+    uint8x16_t v = vld1q_u8((const uint8_t*)data);
+    if (vmaxvq_u8(v) >= 0x80) {
+      return data + __builtin_ctz(neon_highbit_mask(v));
+    }
+    data += 16;
+  }
+  if (end - data >= 8) {
+    uint64_t head = utf8_range_UnalignedLoad64(data);
+    uint64_t tail = utf8_range_UnalignedLoad64(end - 8);
+    if (((head | tail) & 0x8080808080808080ULL) == 0) {
+      return end;
+    }
+  }
+#else
   while (8 <= end - data &&
-         (utf8_range_UnalignedLoad64(data) & 0x8080808080808080) == 0) {
+         (utf8_range_UnalignedLoad64(data) & 0x8080808080808080ULL) == 0) {
     data += 8;
   }
+#endif
   while (data < end && utf8_range_AsciiIsAscii(*data)) {
     ++data;
   }
@@ -187,8 +492,19 @@ static FORCE_INLINE_ATTR inline size_t utf8_range_Validate(
     return (return_position ? (data - (end - len)) : 0) +
            utf8_range_ValidateUTF8Naive(data, end, return_position);
   }
-#ifndef __SSE4_1__
+#if !defined(__SSE4_1__) && !defined(UTF8_RANGE_ARM_NEON)
   return (return_position ? (data - (end - len)) : 0) +
+         utf8_range_ValidateUTF8Naive(data, end, return_position);
+#elif defined(UTF8_RANGE_ARM_NEON)
+  /* The simdutf NEON algorithm only validates (yes/no) and does not compute a
+   * valid prefix length, so it is used for the IsValid path. For the
+   * ValidPrefix path we fall back to the naive scanner. */
+  if (!return_position) {
+    return utf8_simdutf_validate((const uint8_t*)data, (size_t)(end - data))
+               ? 1
+               : 0;
+  }
+  return (data - (end - len)) +
          utf8_range_ValidateUTF8Naive(data, end, return_position);
 #else
   /* This code checks that utf-8 ranges are structurally valid 16 bytes at once

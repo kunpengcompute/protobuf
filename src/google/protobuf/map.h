@@ -967,6 +967,34 @@ class KeyMapBase : public UntypedMapBase {
   // If the key is a duplicate, it inserts the new node and returns the old one.
   // Gives ownership to the caller.
   // If the key is unique, it returns `nullptr`.
+#if defined(__aarch64__)
+  KeyNode* InsertOrReplaceNode(KeyNode* node) {
+    return InsertNodeImpl(node, true);
+  }
+
+  KeyNode* InsertNodeWithoutResizeCheck(KeyNode* node) {
+    return InsertNodeImpl(node, false);
+  }
+
+  bool ResizeIfLoadIsOutOfRange(size_type new_size) {
+    return ResizeIfLoadIsOutOfRangeImpl(new_size, true);
+  }
+
+  KeyNode* InsertNodeImpl(KeyNode* node, bool allow_shrink) {
+    KeyNode* to_erase = nullptr;
+    auto p = this->FindHelper(node->key());
+    map_index_t b = p.bucket;
+    if (p.node != nullptr) {
+      erase_no_destroy(p.bucket, static_cast<KeyNode*>(p.node));
+      to_erase = static_cast<KeyNode*>(p.node);
+    } else if (ResizeIfLoadIsOutOfRangeImpl(num_elements_ + 1, allow_shrink)) {
+      b = BucketNumber(node->key());  // bucket_number
+    }
+    InsertUnique(b, node);
+    ++num_elements_;
+    return to_erase;
+  }
+#else
   KeyNode* InsertOrReplaceNode(KeyNode* node) {
     KeyNode* to_erase = nullptr;
     auto p = this->FindHelper(node->key());
@@ -981,6 +1009,7 @@ class KeyMapBase : public UntypedMapBase {
     ++num_elements_;
     return to_erase;
   }
+#endif
 
   // Insert the given Node in bucket b.  If that would make bucket b too big,
   // and bucket b is not a tree, create a tree for buckets b.
@@ -1029,6 +1058,38 @@ class KeyMapBase : public UntypedMapBase {
   // destroy the expected big-O bounds for some operations. By having the
   // policy that sometimes we resize down as well as up, clients can easily
   // keep O(size()) = O(number of buckets) if they want that.
+#if defined(__aarch64__)
+  bool ResizeIfLoadIsOutOfRangeImpl(size_type new_size, bool allow_shrink) {
+    const size_type hi_cutoff = CalculateHiCutoff(num_buckets_);
+    const size_type lo_cutoff = hi_cutoff / 4;
+    // We don't care how many elements are in trees.  If a lot are,
+    // we may resize even though there are many empty buckets.  In
+    // practice, this seems fine.
+    if (PROTOBUF_PREDICT_FALSE(new_size > hi_cutoff)) {
+      if (num_buckets_ <= max_size() / 2) {
+        Resize(num_buckets_ * 2);
+        return true;
+      }
+    } else if (allow_shrink && PROTOBUF_PREDICT_FALSE(new_size <= lo_cutoff &&
+                                      num_buckets_ > kMinTableSize)) {
+      size_type lg2_of_size_reduction_factor = 1;
+      // It's possible we want to shrink a lot here... size() could even be 0.
+      // So, estimate how much to shrink by making sure we don't shrink so
+      // much that we would need to grow the table after a few inserts.
+      const size_type hypothetical_size = new_size * 5 / 4 + 1;
+      while ((hypothetical_size << lg2_of_size_reduction_factor) < hi_cutoff) {
+        ++lg2_of_size_reduction_factor;
+      }
+      size_type new_num_buckets = std::max<size_type>(
+          kMinTableSize, num_buckets_ >> lg2_of_size_reduction_factor);
+      if (new_num_buckets != num_buckets_) {
+        Resize(new_num_buckets);
+        return true;
+      }
+    }
+    return false;
+  }
+#else
   bool ResizeIfLoadIsOutOfRange(size_type new_size) {
     const size_type hi_cutoff = CalculateHiCutoff(num_buckets_);
     const size_type lo_cutoff = hi_cutoff / 4;
@@ -1059,6 +1120,7 @@ class KeyMapBase : public UntypedMapBase {
     }
     return false;
   }
+#endif
 
   // Resize to the given number of buckets.
   void Resize(map_index_t new_num_buckets) {
@@ -1096,6 +1158,29 @@ class KeyMapBase : public UntypedMapBase {
       node = next;
     } while (node != nullptr);
   }
+
+#if defined(__aarch64__)
+  void InternalReserve(size_t additional_count) {
+    size_t expected_size = this->num_elements_ + additional_count;
+    if (expected_size > CalculateHiCutoff(this->num_buckets_)) {
+      size_type new_num_buckets =
+          this->num_buckets_ == kGlobalEmptyTableSize ? kMinTableSize
+                                                     : this->num_buckets_;
+      while (CalculateHiCutoff(new_num_buckets) < expected_size) {
+        new_num_buckets *= 2;
+      }
+
+      if (new_num_buckets > this->num_buckets_) {
+        if (this->num_buckets_ == kGlobalEmptyTableSize) {
+          this->Resize(kMinTableSize);
+        }
+        if (this->num_buckets_ < new_num_buckets) {
+          this->Resize(new_num_buckets);
+        }
+      }
+    }
+  }
+#endif
 
   map_index_t BucketNumber(typename TS::ViewType k) const {
     ABSL_DCHECK_EQ(BucketNumberFromHash(hash_function()(k)),
