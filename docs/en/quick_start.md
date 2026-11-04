@@ -110,6 +110,8 @@ Code generation is supported for the following languages:
 
 ### C++ Encoding and Decoding Sample Code
 
+In the directory containing the generated `addressbook.pb.h` and `addressbook.pb.cc` files, create `example.cc` and save the entire code sample below, including `main()`, in that file. Run the commands in “Compiling and Running” from the same directory.
+
 ```cpp
 #include <iomanip>
 #include <iostream>
