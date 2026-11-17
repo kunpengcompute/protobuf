@@ -114,7 +114,7 @@ cd protobuf
 | `CMAKE_CXX_STANDARD` | C++标准版本（推荐17或23）。 | 17 |
 | `CMAKE_CXX_FLAGS` | 编译器标志（-march启用SVE2优化）。 | - |
 | `CMAKE_INSTALL_PREFIX` | 安装路径。 | /usr/local |
-| `protobuf_BUILD_TESTS` | 编译测试。 | OFF |
+| `protobuf_BUILD_TESTS` | 编译测试。 | ON |
 | `protobuf_BUILD_CONFORMANCE` | 构建一致性测试。 | OFF |
 
 ## 安装验证
@@ -136,7 +136,7 @@ lrwxrwxrwx. 1 user user      21 Mar 20 12:19 libprotobuf.so -> libprotobuf.so.33
 
 ## 运行测试
 
-编译完成后，可以运行测试验证构建结果。
+如需使用 `ctest` 运行测试，请在配置时使用 `-Dprotobuf_BUILD_TESTS=ON`，然后编译项目。如需跳过测试的编译，请在配置时使用 `-Dprotobuf_BUILD_TESTS=OFF`。
 
 1. 创建临时目录。
 

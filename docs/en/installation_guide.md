@@ -114,7 +114,7 @@ Enable SVE2 compilation options to fully leverage the optimized performance of K
 | `CMAKE_CXX_STANDARD` | C++ standard version (17 or 23 is recommended). | 17 |
 | `CMAKE_CXX_FLAGS` | Compiler flags (e.g., `-march` to enable SVE2 optimization). | - |
 | `CMAKE_INSTALL_PREFIX` | Installation path. | /usr/local |
-| `protobuf_BUILD_TESTS` | Builds tests. | OFF |
+| `protobuf_BUILD_TESTS` | Builds tests. | ON |
 | `protobuf_BUILD_CONFORMANCE` | Builds conformance tests. | OFF |
 
 ## Installation Verification
@@ -136,7 +136,7 @@ lrwxrwxrwx. 1 user user      21 Mar 20 12:19 libprotobuf.so -> libprotobuf.so.33
 
 ## Running Tests
 
-After compilation, you can run tests to verify the build results.
+To run the tests with `ctest`, configure with `-Dprotobuf_BUILD_TESTS=ON` and build the project. To skip building tests, configure with `-Dprotobuf_BUILD_TESTS=OFF`.
 
 1. Create a temporary directory.
 
