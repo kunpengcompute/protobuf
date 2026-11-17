@@ -110,6 +110,8 @@ protoc --cpp_out=. addressbook.proto
 
 ### C++编解码示例代码
 
+在生成`addressbook.pb.h`和`addressbook.pb.cc`的目录中新建`example.cc`，将下面包含`main()`的完整代码保存到该文件。随后在同一目录执行[编译和运行](#编译和运行)中的命令。
+
 ```cpp
 #include <iomanip>
 #include <iostream>
